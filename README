@@ -1,0 +1,10 @@
+aristed is a C++ editor that aims to provide semantic highlighting, completion and diagnostics of the quality present in Eclipse (but without Java) and XCode (but cross-platform), with all the accessibility of a lightweight, Notepad++-style user interface.
+
+aristed is currently in VERY early stages of development. Jump in and have a hack while the code base is still small and understandable!
+
+(Planned) Features
+- High degree of semanticity thanks to Clang
+- Fast, unobtrusive UI based on Qt
+- Optionally completely keyboard-driven
+
+Core philosophy: Write as little code as possible, rely on libraries
