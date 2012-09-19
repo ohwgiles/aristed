@@ -20,5 +20,5 @@ Planned development angles:
 
 Current (working) screenshot:
 
-![Screenshot](res/screenshot.png)
+![Screenshot](https://raw.github.com/ohwgiles/aristed/master/res/screenshot.png)
 
