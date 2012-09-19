@@ -1,7 +1,8 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
-#include "cxx/cxxeditor.hpp"
+#include "cxxeditor.hpp"
+#include "colourscheme.hpp"
 #include "log.hpp"
 
 #include <QTabWidget>
@@ -18,8 +19,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
 	ui->setupUi(this);
 	m_tabs = new TabWidget(this);
-	setWindowTitle("Aristed");
-	QIcon icon("/home/og/dev/aristed/res/icon.png");
+	QIcon icon(":icon.png");
 
 	setWindowIcon(icon);
 
@@ -61,7 +61,7 @@ void MainWindow::on_actionNew_triggered()
 }
 
 void MainWindow::insertRubbish(Editor *e) {
-	e->insertPlainText("/* This is sample C++ code */\n"
+	e->insertPlainText("/* This is sample C++ code*/ \n"
 "#include <cstdio>\n"
 "#include <vector>\n"
 "#define MACRO(x) x\n"

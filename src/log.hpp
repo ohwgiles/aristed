@@ -3,7 +3,7 @@
 
 #include <sstream>
 #include <ostream>
-
+#include <cstdlib>
 class Log : public std::stringstream
 {
 public:

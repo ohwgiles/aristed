@@ -2,10 +2,10 @@
 #define EDITOR_HPP
 
 #include <QPlainTextEdit>
-
+#include "highlighter.hpp"
 class ColourScheme;
 class LineNumberBar;
-
+class TextStyle;
 class Editor : public QPlainTextEdit {
     Q_OBJECT
 public:
@@ -26,6 +26,7 @@ public:
 protected:
 	const ColourScheme* mColourScheme;
 	virtual void keyPressEvent(QKeyEvent *e);
+	virtual const TextStyle* getStyle(int blockNumber, int index) = 0;
 
 private:
     void resizeEvent(QResizeEvent *e);
@@ -35,6 +36,7 @@ private:
     bool mDirty;
 	bool mHasFileName;
 
+	friend class Highlighter;
 signals:
 	void dirtied(bool);
 

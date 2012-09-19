@@ -15,7 +15,13 @@ public:
 	virtual QColor numericconst() const = 0;
 	virtual QColor keyword()    const = 0;
 	virtual QColor preproc() const = 0;
-	virtual QColor methodDeclName() const = 0;
+	virtual QColor method() const = 0;
+	virtual QColor structure() const = 0;
+	virtual QColor enumconst() const = 0;
+	virtual QColor field() const = 0;
+	virtual QColor func() const = 0;
+	virtual QColor var() const = 0;
+	virtual QColor param() const = 0;
 };
 
 namespace colour {
@@ -32,7 +38,15 @@ public:
 	QColor numericconst() const { return QColor(0xcf,0x6a,0x4c); }
 	QColor keyword()        const { return QColor(0x81,0x97,0xbf); }
 	QColor preproc() const { return QColor(0x8f,0xbf,0xdc); }
-	virtual QColor methodDeclName() const { return Qt::cyan; }
+	QColor structure() const { return QColor(0x57,0x90,0x58); }
+	QColor enumconst() const { return QColor(0xf3,0xa5,0x5e); }
+	QColor method() const { return QColor(0xce,0xe5,0x9f); }
+	QColor field() const { return QColor(0x9f,0xce,0xe5); }
+	QColor func() const { return QColor(0xb4,0x63,0xcd); }
+	QColor var() const { return QColor(0xf1,0xc4,0x3c); }
+	QColor param() const { return QColor(0xdd, 0xdc, 0x54); }
+
+
 };
 
 }
