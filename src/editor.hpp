@@ -39,9 +39,9 @@ private:
 	friend class Highlighter;
 signals:
 	void dirtied(bool);
-
+	void updateCursorPosition(QString);
 protected slots:
-    virtual void handleCursorMoved() {}
+	 virtual void handleCursorMoved();
 	void handleDocModified(bool);
 
     void updateLineNumberBarWidth(int /* newBlockCount */);

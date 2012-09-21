@@ -11,7 +11,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QProcess>
-
+#include <QLabel>
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
@@ -25,6 +25,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	this->setCentralWidget(m_tabs);
 	connect(m_tabs, SIGNAL(currentChanged(int)), this, SLOT(currentTabChanged(int)));
+
+	cursor_position = new QLabel();
+	ui->statusbar->addPermanentWidget(cursor_position);
+
 	on_actionNew_triggered();
 }
 
@@ -48,6 +52,9 @@ Editor* MainWindow::createEditor() {
 	Editor* e = new E(this);
 	e->setColourScheme(mColourScheme);
 	connect(e, SIGNAL(dirtied(bool)), this, SLOT(handleDirtied(bool)));
+	//connect(e, SIGNAL(positionInfo(QString)), ui->statusbar, SLOT(showMessage(QString)));
+	connect(e, SIGNAL(updateCursorPosition(QString)), cursor_position, SLOT(setText(QString)));
+
 	return e;
 }
 

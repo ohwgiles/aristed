@@ -4,19 +4,36 @@
 #include "editor.hpp"
 #include <QSyntaxHighlighter>
 #include <QModelIndex>
-#include "semanticthread.hpp"
 #include "highlighter.hpp"
 #include "lockable.hpp"
 #include "textstyle.hpp"
 
+#include <clang-c/Index.h>
 // forward decls
 class QCompleter;
-typedef void* CXIndex;
-typedef struct CXTranslationUnitImpl *CXTranslationUnit;
+//typedef void* CXIndex;
+//typedef struct CXTranslationUnitImpl *CXTranslationUnit;
 class CompletionModelProxy;
 
+class CxxEditor;
+class CxxBackground : public QObject {
+	Q_OBJECT
+public:
+	CxxBackground(CxxEditor* e, void (CxxEditor::*mfun)(char)) :
+		QObject(),
+		e(e),
+		mfun(mfun)
+	{}
+signals:
+	void complete(char);
+public slots:
+	void launch(char s);
+private:
+	CxxEditor* e;
+	void (CxxEditor::*mfun)(char);
+};
 
-class CxxEditor : public Editor, private ThreadCaller {
+class CxxEditor : public Editor {
 	Q_OBJECT
 public:
 	CxxEditor(QWidget* parent = 0);
@@ -26,11 +43,13 @@ public:
 	QVariant data(const QModelIndex &, int ) const;
 
 protected:
+	QThread* backgroundWorker;
 	CompletionModelProxy* mCompletionModel;
 	CXIndex index;
 	QVector<QString> completionResults;
-	QTextCursor mCompletionCursor;
+	Lockable<QTextCursor> mCompletionCursor;
 	Lockable<CXTranslationUnit> tu;
+	CXCursor mCursor;
 	virtual void keyPressEvent(QKeyEvent *e);
 	void handleCursorMoved();
 	void lexicalHighlight();
@@ -40,7 +59,8 @@ protected:
 	QString mCompletionPrefix;
 	void complete();
 	const TextStyle* getStyle(int blockNumber, int index);
-	void doThreadWork(char s);
+	void reparseDocument(char s);
+	void findCursorInfo(char s);
 	char threadSentinel;
 	Lockable<QByteArray> lastDocument;
 	typedef QMap<int, HighlightStyleVector> HighlightStyleMap;
@@ -49,8 +69,13 @@ protected:
 	Lockable<DiagnosticStyleMap> blockDiagnosticStyles;
 	Highlighter hlighter;
 
+CxxBackground semantics;
+CxxBackground cursorInfo;
+signals:
+void positionInfo(QString);
 protected slots:
-	void threadComplete(char);
+	void reparseComplete(char);
+	void cursorInfoFound(char);
 	void completionChosen(QString);
 	void handleTextChanged(int, int, int);
 };

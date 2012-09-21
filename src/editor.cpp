@@ -40,6 +40,12 @@ void Editor::setColourScheme(ColourScheme* scheme) {
 	highlightCurrentLine();
 
 }
+void Editor::handleCursorMoved() {
+	QTextCursor cur = textCursor();
+	QString loc = QString::number(cur.blockNumber()+1) + ":" + QString::number(cur.columnNumber());
+	emit updateCursorPosition(loc);
+
+}
 
 void Editor::setDirty(bool b) {
 	if(mDirty != b) {

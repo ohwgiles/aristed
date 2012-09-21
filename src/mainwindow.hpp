@@ -5,7 +5,7 @@
 
 class Editor;
 class ColourScheme;
-
+class QLabel;
 namespace Ui {
 class MainWindow;
 }
@@ -50,6 +50,7 @@ private:
 	Ui::MainWindow *ui;
 	ColourScheme* mColourScheme;
 	QVector<Editor *> m_editors;
+	QLabel* cursor_position;
 };
 
 #endif // MAINWINDOW_HPP

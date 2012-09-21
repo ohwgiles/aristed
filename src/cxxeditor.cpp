@@ -7,6 +7,7 @@
 #include <QAbstractItemView>
 #include <QCompleter>
 #include <clang-c/Index.h>
+#include <QThread>
 
 // This class is used so QCompleter can have an AbstractListModel
 // to get its results out of. Ideally, CxxEditor would inherit this, but
@@ -25,6 +26,11 @@ int CxxEditor::rowCount(const QModelIndex &) const {
 	return completionResults.size();
 }
 
+void CxxBackground::launch(char s) {
+	(e->*mfun)(s);
+	emit complete(s);
+}
+
 QVariant CxxEditor::data(const QModelIndex &idx, int role) const {
 	if(idx.isValid() && (role == Qt::DisplayRole || role == Qt::EditRole)) {
 		return completionResults.at(idx.row());
@@ -34,8 +40,10 @@ QVariant CxxEditor::data(const QModelIndex &idx, int role) const {
 
 CxxEditor::CxxEditor(QWidget *parent) :
 	Editor(parent),
-	ThreadCaller(),
-	hlighter(this)
+	mCursor(*new CXCursor),
+	hlighter(this),
+	semantics(this, &CxxEditor::reparseDocument),
+	cursorInfo(this, &CxxEditor::findCursorInfo)
 {
 	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
 	setMouseTracking(true);
@@ -47,7 +55,25 @@ CxxEditor::CxxEditor(QWidget *parent) :
 	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
 
 	index = clang_createIndex(0,0);
-	Editor::connect(&t, SIGNAL(complete(char)), this, SLOT(threadComplete(char)), Qt::QueuedConnection);
+	const char* args[6];
+	args[0] = "-x";
+	args[1] = "c++";
+	ae_info(CLANG_VER);
+	args[2] = "-I/usr/lib/clang/" CLANG_VER "/include";
+	args[3] = "-pedantic";
+	args[4] = "-Wall";
+	args[5] = "-Wextra";
+	//const char* argv = incpath;
+	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, NULL, 0, CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
+
+	backgroundWorker = new QThread();
+	semantics.moveToThread(backgroundWorker);
+	cursorInfo.moveToThread(backgroundWorker);
+
+
+	connect(&semantics, SIGNAL(complete(char)), this, SLOT(reparseComplete(char)), Qt::QueuedConnection);
+	connect(&cursorInfo, SIGNAL(complete(char)), this, SLOT(cursorInfoFound(char)), Qt::QueuedConnection);
+	backgroundWorker->start();
 }
 
 CxxEditor::~CxxEditor() {
@@ -100,7 +126,8 @@ bool CxxEditor::event(QEvent *e) {
 		return Editor::event(e);
 }
 void CxxEditor::complete() {
-	QTextCursor c = mCompletionCursor;
+	// does not need to lock it since this runs in the same thread as the set
+	QTextCursor c = mCompletionCursor();
 	// TODO sort out the whole CXUnsavedFile fiasco
 	CXUnsavedFile thisfile;
 	QByteArray b = document()->toPlainText().toUtf8();
@@ -131,6 +158,7 @@ void CxxEditor::complete() {
 }
 
 void CxxEditor::handleCursorMoved() {
+	Editor::handleCursorMoved();
 	// Whenever the cursor is moved, track backwards to find the last
 	// non-alphanumeric character. This chunk is the code completion prefix,
 	// needed to filter results when the user requests a code completion
@@ -140,20 +168,30 @@ void CxxEditor::handleCursorMoved() {
 			document()->characterAt(cur.position()-1) == QChar('_'))) {
 		cur.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
 	}
-	//tu.lock();
-	CXFile f = clang_getFile(tu(), "a");
-	CXSourceLocation loc = clang_getLocationForOffset(tu(),f,cur.position());
-	CXCursor csr = clang_getCursor(tu(), loc);
-	// todo emit reference information
-	(void) csr;
-	//ae_info(clang_getCursorKind(csr));
-	//tu.unlock();
 	// Save the cursor, so it can be accessed when the completion is requested
 	mCompletionPrefix =  cur.selectedText();
-	mCompletionCursor = cur;
+	mCompletionCursor.lock();
+	mCompletionCursor() = cur;
+	mCompletionCursor.unlock();
+
+	QMetaObject::invokeMethod(&cursorInfo, "launch", Q_ARG(char, 0));
+
 	if(mCompleter->popup()->isVisible())
 		complete();
 }
+
+void CxxEditor::findCursorInfo(char) {
+
+	tu.lock();
+	CXFile f = clang_getFile(tu(), "a");
+	CXSourceLocation loc = clang_getLocationForOffset(tu(),f,mCompletionCursor().position());
+	mCursor = clang_getCursor(tu(), loc);
+
+	// todo emit reference information
+	tu.unlock();
+
+}
+
 
 // Called by the highlighter. It will be repeatedly called with the same
 // blockNumber until the function returns zero. Its responsibility is
@@ -228,13 +266,14 @@ void CxxEditor::handleTextChanged(int pos, int removed, int added) {
 	lastDocument.scopedLock();
 	lastDocument() = document()->toPlainText().toUtf8();
 	// Launch the background thread
-	triggerThread(threadSentinel);
+	QMetaObject::invokeMethod(&semantics, "launch", Q_ARG(char, threadSentinel));
+	//BackgroundUpdateSemantics::triggerThread(threadSentinel);
 }
 
 
 // This function is run in the background thread. It must be careful when
 // accessing class members it shares with the main thread
-void CxxEditor::doThreadWork(char s) {
+void CxxEditor::reparseDocument(char s) {
 	// Fail early if this execution is already invalid
 	if(s != threadSentinel) return;
 
@@ -249,16 +288,8 @@ void CxxEditor::doThreadWork(char s) {
 	thisfile.Filename = "a";
 	thisfile.Contents = documentCopy.constData();
 	thisfile.Length = documentCopy.size();
-	const char* args[6];
-	args[0] = "-x";
-	args[1] = "c++";
-	args[2] = "-I/usr/lib/clang/" CLANG_VER "/include";
-	args[3] = "-pedantic";
-	args[4] = "-Wall";
-	args[5] = "-Wextra";
-	//const char* argv = incpath;
 	tu.lock();
-	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, &thisfile, 1, CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
+	clang_reparseTranslationUnit(tu(), 1, &thisfile, CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 	tu.unlock();
 	CXCursor Cursor = clang_getTranslationUnitCursor(tu());
 	CXSourceRange sr= clang_getCursorExtent(Cursor);
@@ -511,7 +542,7 @@ void CxxEditor::doThreadWork(char s) {
 }
 
 // Called when the thread has finished updating the styles
-void CxxEditor::threadComplete(char s) {
+void CxxEditor::reparseComplete(char s) {
 	// By this time, the user may have entered input again, invalidating
 	// the parsed colours/styles. If so, don't cause a rehighlight, since
 	// it is about to be overwritten anyway
@@ -520,4 +551,9 @@ void CxxEditor::threadComplete(char s) {
 		blockDiagnosticStyles.scopedLock();
 		hlighter.rehighlight();
 	}
+}
+void CxxEditor::cursorInfoFound(char) {
+	CXString spl = clang_getCursorKindSpelling(clang_getCursorKind(mCursor));
+	emit positionInfo(clang_getCString(spl));
+	clang_disposeString(spl);
 }
