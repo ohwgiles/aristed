@@ -2,23 +2,32 @@
 #include "linenumberbar.hpp"
 #include "colourscheme.hpp"
 #include "log.hpp"
-
+#include "codemodel.hpp"
 #include <QPainter>
 #include <QPaintEvent>
 #include <QTextBlock>
+#include <QCompleter>
+#include <QAbstractItemView>
 #include <QFileInfo>
-
+#include "cxxmodel.hpp"
+#include <QToolTip>
+#include "highlighter.hpp"
 Editor::Editor(QWidget *parent) :
 	QPlainTextEdit(parent),
 	mLineNumberBar(new LineNumberBar(this)),
 	mDirty(false),
-	mHasFileName(false)
+	mHasFileName(false),
+	model(0),
+	hlighter(this)
 {
 	connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberBarWidth(int)));
 	connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberBar(QRect,int)));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(handleCursorMoved()));
 	connect(this, SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
+	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
+
+	setMouseTracking(true);
 
 	QTextOption opts;
 	opts.setFlags(QTextOption::ShowTabsAndSpaces);
@@ -29,6 +38,30 @@ Editor::Editor(QWidget *parent) :
 	document()->setDefaultTextOption(opts);
 	setTabStopWidth(fontMetrics().width('M')*3);
 	updateLineNumberBarWidth(0);
+
+	mCompleter = new QCompleter(this);
+	mCompleter->setCompletionMode(QCompleter::PopupCompletion);
+	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
+	mCompleter->setWidget(this);
+	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
+
+
+}
+const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->getStyle(blockNumber, index); }
+
+void Editor::setCxxModel() {
+	delete model;
+	model = new CxxModel(hlighter, mColourScheme);
+	this->model = model;
+	mCompleter->setModel(this->model);
+}
+
+void Editor::completionChosen(QString repl) {
+	mCompleter->popup()->hide();
+	QTextCursor tc = textCursor();
+	tc.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, model->completionPrefix().count());
+	tc.removeSelectedText();
+	insertPlainText(repl);
 }
 
 void Editor::setColourScheme(ColourScheme* scheme) {
@@ -40,10 +73,36 @@ void Editor::setColourScheme(ColourScheme* scheme) {
 	highlightCurrentLine();
 
 }
+void Editor::handleTextChanged(int pos, int removed, int added) {
+	model->handleTextChanged(document(), pos, removed, added);
+}
+
+void Editor::showCompletions() {
+	// Get the model to update its idea of the world
+	model->prepareCompletions(document());
+	// Actually display the toolbox
+	mCompleter->setCompletionPrefix(model->completionPrefix());
+	// Resetting the model appears to be necessary to get Qt to reproduce the
+	// results. Otherwise, when the order of the results changes, the widget
+	// will not reiterate them, and will return random results
+	mCompleter->setModel(model);
+	QRect cr = cursorRect();
+	QPoint p = viewport()->mapToParent(cr.topLeft());
+	// TODO how wide should it be?
+	mCompleter->complete(QRect(p.x(),p.y(), 140, cr.height()));
+
+}
+
 void Editor::handleCursorMoved() {
 	QTextCursor cur = textCursor();
 	QString loc = QString::number(cur.blockNumber()+1) + ":" + QString::number(cur.columnNumber());
 	emit updateCursorPosition(loc);
+
+	// Let the model update whatever it needs
+	model->cursorPositionChanged(document(), cur);
+
+	if(mCompleter->popup()->isVisible())
+		showCompletions();
 
 }
 
@@ -52,6 +111,38 @@ void Editor::setDirty(bool b) {
 		mDirty = b;
 		emit dirtied(b);
 	}
+}
+void Editor::keyPressEvent(QKeyEvent *e) {
+	// allow the model to supply some key events
+	model->keyPressEvent(e);
+
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
+		showCompletions();
+		return;
+	}
+
+// If the completion window is available, enter/tab inserts the completion
+if(mCompleter->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
+	completionChosen(mCompleter->currentCompletion());
+	return;
+}
+QPlainTextEdit::keyPressEvent(e);
+}
+
+bool Editor::event(QEvent *e) {
+	if (e->type() == QEvent::ToolTip) {
+		QPoint p = viewport()->mapFromGlobal(QCursor::pos());
+		QTextCursor tc = cursorForPosition(p);
+		int col = tc.columnNumber();
+		int row = tc.blockNumber();
+		QString tip = model->getTipAt(row, col);
+		if(tip.isEmpty())
+			QToolTip::hideText();
+		else
+			QToolTip::showText(QCursor::pos(), tip, this);
+		return true;
+	}
+	return QPlainTextEdit::event(e);
 }
 
 void Editor::handleDocModified(bool) {
@@ -109,18 +200,6 @@ QTextCursor Editor::wordUnderCursor() const
 	if(!tc.atStart())
 		tc.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
 	return tc;
-}
-
-void Editor::keyPressEvent(QKeyEvent *e) {
-	//    // todo cool key bindings
-	QPlainTextEdit::keyPressEvent(e);
-	if(e->modifiers() & Qt::ControlModifier) {// && e->key() == Qt::Key_Space) {
-		//handleTextChanged();
-		//autoCompleteFromAPIs();
-		return;
-	}
-
-	//    return QsciScintilla::keyPressEvent(e);
 }
 
 int Editor::lineNumberBarWidth() {

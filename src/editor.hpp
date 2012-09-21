@@ -2,10 +2,13 @@
 #define EDITOR_HPP
 
 #include <QPlainTextEdit>
+
 #include "highlighter.hpp"
+class CodeModel;
 class ColourScheme;
 class LineNumberBar;
 class TextStyle;
+class QCompleter;
 class Editor : public QPlainTextEdit {
     Q_OBJECT
 public:
@@ -23,10 +26,16 @@ public:
 	bool saveFile() { return saveFile(mFileName); }
 	bool saveFile(QString filename);
 
+	void setCxxModel();
+	Highlighter& highlighter() { return hlighter; }
+
+
+	void showCompletions();
 protected:
 	const ColourScheme* mColourScheme;
 	virtual void keyPressEvent(QKeyEvent *e);
-	virtual const TextStyle* getStyle(int blockNumber, int index) = 0;
+	virtual const TextStyle* getStyle(int blockNumber, int index);
+	virtual bool event(QEvent *e);
 
 private:
     void resizeEvent(QResizeEvent *e);
@@ -35,6 +44,10 @@ private:
 	void setDirty(bool b);
     bool mDirty;
 	bool mHasFileName;
+CodeModel* model;
+QCompleter* mCompleter;
+
+Highlighter hlighter;
 
 	friend class Highlighter;
 signals:
@@ -43,10 +56,11 @@ signals:
 protected slots:
 	 virtual void handleCursorMoved();
 	void handleDocModified(bool);
-
+void handleTextChanged(int pos, int removed, int added);
     void updateLineNumberBarWidth(int /* newBlockCount */);
     void updateLineNumberBar(const QRect &rect, int dy);
     void highlightCurrentLine();
+	 void completionChosen(QString);
 
 private:
 	friend class LineNumberBar;

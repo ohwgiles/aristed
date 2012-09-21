@@ -1,10 +1,11 @@
-#include "cxxeditor.hpp"
+#include "cxxmodel.hpp"
 #include "colourscheme.hpp"
 #include "log.hpp"
-
+#include "editor.hpp"
 #include <QToolTip>
 #include <QAbstractListModel>
 #include <QAbstractItemView>
+#include <Q3SyntaxHighlighter>
 #include <QCompleter>
 #include <clang-c/Index.h>
 #include <QThread>
@@ -15,14 +16,14 @@
 // a stupid proxy class.
 class CompletionModelProxy : public QAbstractListModel {
 public:
-	CompletionModelProxy(CxxEditor* e) : e(e) {}
+	CompletionModelProxy(CxxModel* e) : e(e) {}
 	int rowCount(const QModelIndex &idx) const { return e->rowCount(idx); }
 	QVariant data(const QModelIndex &idx, int role) const { return e->data(idx,role); }
 private:
-	CxxEditor* e;
+	CxxModel* e;
 };
 
-int CxxEditor::rowCount(const QModelIndex &) const {
+int CxxModel::rowCount(const QModelIndex &) const {
 	return completionResults.size();
 }
 
@@ -31,28 +32,22 @@ void CxxBackground::launch(char s) {
 	emit complete(s);
 }
 
-QVariant CxxEditor::data(const QModelIndex &idx, int role) const {
+QVariant CxxModel::data(const QModelIndex &idx, int role) const {
 	if(idx.isValid() && (role == Qt::DisplayRole || role == Qt::EditRole)) {
 		return completionResults.at(idx.row());
 	}
 	return QVariant();
 }
 
-CxxEditor::CxxEditor(QWidget *parent) :
-	Editor(parent),
+CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&colours) : CodeModel(),
 	mCursor(*new CXCursor),
-	hlighter(this),
-	semantics(this, &CxxEditor::reparseDocument),
-	cursorInfo(this, &CxxEditor::findCursorInfo)
+	highlighter(highlighter),
+	colours(colours),
+	semantics(this, &CxxModel::reparseDocument),
+	cursorInfo(this, &CxxModel::findCursorInfo)
 {
-	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
-	setMouseTracking(true);
+//	setMouseTracking(true);
 	mCompletionModel = new CompletionModelProxy(this);
-	mCompleter = new QCompleter(mCompletionModel, this);
-	mCompleter->setCompletionMode(QCompleter::PopupCompletion);
-	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
-	mCompleter->setWidget(this);
-	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
 
 	index = clang_createIndex(0,0);
 	const char* args[6];
@@ -64,7 +59,7 @@ CxxEditor::CxxEditor(QWidget *parent) :
 	args[4] = "-Wall";
 	args[5] = "-Wextra";
 	//const char* argv = incpath;
-	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, NULL, 0, CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
+	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, NULL, 0, CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 
 	backgroundWorker = new QThread();
 	semantics.moveToThread(backgroundWorker);
@@ -76,66 +71,33 @@ CxxEditor::CxxEditor(QWidget *parent) :
 	backgroundWorker->start();
 }
 
-CxxEditor::~CxxEditor() {
+CxxModel::~CxxModel() {
 	disconnect(this);
-	disconnect(&hlighter);
-	hlighter.setDocument(0);
-	delete mCompleter;
 	delete mCompletionModel;
 }
 
-void CxxEditor::completionChosen(QString repl) {
-	mCompleter->popup()->hide();
-	QTextCursor tc = textCursor();
-	tc.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, mCompletionPrefix.count());
-	tc.removeSelectedText();
-	insertPlainText(repl);
-}
-
-void CxxEditor::keyPressEvent(QKeyEvent *e) {
-	// ctrl-space launches completion widget
-	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
-		complete();
-		return;
+QString CxxModel::getTipAt(int row, int col) {
+	blockDiagnosticStyles.scopedLock();
+	for(int i=0, N=blockDiagnosticStyles()[row].size(); i!=N; ++i) {
+		const DiagStyle& ds = blockDiagnosticStyles()[row][i];
+		if(col >= ds.start && col <= ds.start + ds.len)
+			return ds.m_message;
 	}
-	// If the completion window is available, enter/tab inserts the completion
-	if(mCompleter->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
-		completionChosen(mCompleter->currentCompletion());
-		return;
-	}
-
-	Editor::keyPressEvent(e);
+	return "";
 }
 
-bool CxxEditor::event(QEvent *e) {
-	if (e->type() == QEvent::ToolTip) {
-		QPoint p = viewport()->mapFromGlobal(QCursor::pos());
-		QTextCursor tc = cursorForPosition(p);
-		int col = tc.columnNumber();
-		int row = tc.blockNumber();
-		blockDiagnosticStyles.scopedLock();
-		for(int i=0, N=blockDiagnosticStyles()[row].size(); i!=N; ++i) {
-			const DiagStyle& ds = blockDiagnosticStyles()[row][i];
-			if(col >= ds.start && col <= ds.start + ds.len) {
-				QToolTip::showText(QCursor::pos(), ds.m_message, this);
-				break;
-			} else QToolTip::hideText();
-		}
-		return true;
-	} else
-		return Editor::event(e);
-}
-void CxxEditor::complete() {
+
+void CxxModel::prepareCompletions(QTextDocument* doc) {
 	// does not need to lock it since this runs in the same thread as the set
 	QTextCursor c = mCompletionCursor();
 	// TODO sort out the whole CXUnsavedFile fiasco
 	CXUnsavedFile thisfile;
-	QByteArray b = document()->toPlainText().toUtf8();
-	thisfile.Filename = "a.cpp";
+	QByteArray b = doc->toPlainText().toUtf8();
+	thisfile.Filename = "a";
 	thisfile.Contents = b.constData();
 	thisfile.Length = b.size();
 	// TODO so far just the name is extracted. We need much more
-	CXCodeCompleteResults* results = clang_codeCompleteAt(tu(), "a.cpp",c.blockNumber()+1,c.positionInBlock()+1,&thisfile,1,clang_defaultCodeCompleteOptions());
+	CXCodeCompleteResults* results = clang_codeCompleteAt(tu(), "a",c.blockNumber()+1,c.positionInBlock()+1,&thisfile,1,clang_defaultCodeCompleteOptions());
 	completionResults.clear();
 	for(unsigned i = 0; i != results->NumResults; ++i) {
 		// for function/method completions, index 1 is the name.
@@ -145,27 +107,15 @@ void CxxEditor::complete() {
 	}
 	clang_disposeCodeCompleteResults(results);
 
-	// Actually display the toolbox
-	mCompleter->setCompletionPrefix(mCompletionPrefix);
-	// Resetting the model appears to be necessary to get Qt to reproduce the
-	// results. Otherwise, when the order of the results changes, the widget
-	// will not reiterate them, and will return random results
-	mCompleter->setModel(mCompletionModel);
-	QRect cr = cursorRect();
-	QPoint p = viewport()->mapToParent(cr.topLeft());
-	// TODO how wide should it be?
-	mCompleter->complete(QRect(p.x(),p.y(), 140, cr.height()));
 }
 
-void CxxEditor::handleCursorMoved() {
-	Editor::handleCursorMoved();
+void CxxModel::cursorPositionChanged(QTextDocument* doc, QTextCursor cur) {
 	// Whenever the cursor is moved, track backwards to find the last
 	// non-alphanumeric character. This chunk is the code completion prefix,
 	// needed to filter results when the user requests a code completion
-	QTextCursor cur = textCursor();
 	while(!cur.atBlockStart() && (
-			document()->characterAt(cur.position()-1).isLetterOrNumber() ||
-			document()->characterAt(cur.position()-1) == QChar('_'))) {
+			doc->characterAt(cur.position()-1).isLetterOrNumber() ||
+			doc->characterAt(cur.position()-1) == QChar('_'))) {
 		cur.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
 	}
 	// Save the cursor, so it can be accessed when the completion is requested
@@ -176,11 +126,9 @@ void CxxEditor::handleCursorMoved() {
 
 	QMetaObject::invokeMethod(&cursorInfo, "launch", Q_ARG(char, 0));
 
-	if(mCompleter->popup()->isVisible())
-		complete();
 }
 
-void CxxEditor::findCursorInfo(char) {
+void CxxModel::findCursorInfo(char) {
 
 	tu.lock();
 	CXFile f = clang_getFile(tu(), "a");
@@ -193,11 +141,11 @@ void CxxEditor::findCursorInfo(char) {
 }
 
 
-// Called by the highlighter. It will be repeatedly called with the same
+// Called by the highighlighter. It will be repeatedly called with the same
 // blockNumber until the function returns zero. Its responsibility is
-// to return all the highlighting styles so the highlighter can apply them
+// to return all the highlighting styles so the highighlighter can apply them
 // to the document
-const TextStyle* CxxEditor::getStyle(int blockNumber, int index) {
+const TextStyle* CxxModel::getStyle(int blockNumber, int index) {
 	// First do the highlightStyles
 	if(blockHighlightStyles()[blockNumber].size() > index)
 		return & blockHighlightStyles()[blockNumber][index];
@@ -213,7 +161,7 @@ const TextStyle* CxxEditor::getStyle(int blockNumber, int index) {
 	return 0;
 }
 
-void CxxEditor::handleTextChanged(int pos, int removed, int added) {
+void CxxModel::handleTextChanged(QTextDocument *document, int position, int removed, int added) {
 	// When text is first changed, obviously we can't immediately completely
 	// reparse the whole translation unit, which is what is required for
 	// complete semantic highlighting. Here, we do the best we can: move
@@ -227,12 +175,12 @@ void CxxEditor::handleTextChanged(int pos, int removed, int added) {
 	// just been rendered invalid by another user change.
 	threadSentinel++;
 
-	QTextBlock b = document()->findBlock(pos);
+	QTextBlock b = document->findBlock(position);
 	// Theoretically, we could be smarter and deal with multi-line changes,
 	// but most of the time where this block of code is useful (fast typing)
 	// occurs on a single line. Multi-line is difficult because of the way
 	// Qt represents lines as "blocks" in a QTextDocument. This is Good Enough.
-	if(b == document()->findBlock(pos + added - removed)) {
+	if(b == document->findBlock(position + added - removed)) {
 		// We have to grab the locks since a background worker thread may be
 		// in the process of updating these already. If this is the case, it
 		// should discard the result immediately since we've increased the
@@ -240,7 +188,7 @@ void CxxEditor::handleTextChanged(int pos, int removed, int added) {
 		blockHighlightStyles.scopedLock();
 		blockDiagnosticStyles.scopedLock();
 
-		int relativePos = pos - b.position(); // relative to the current block
+		int relativePos = position - b.position(); // relative to the current block
 
 		for(int i = 0, N = blockHighlightStyles()[b.blockNumber()].size(); i != N; ++i) {
 			TextStyle& ts = (*blockHighlightStyles)[b.blockNumber()][i];
@@ -258,13 +206,13 @@ void CxxEditor::handleTextChanged(int pos, int removed, int added) {
 				ts.len += added - removed;
 		}
 		// We've changed the colours so have to rehighlight this line
-		hlighter.rehighlightBlock(b);
+		highlighter.rehighlightBlock(b);
 	}
 
 	// now store the document contents, to be used by the thread. Access
 	// must be protected by a mutex
 	lastDocument.scopedLock();
-	lastDocument() = document()->toPlainText().toUtf8();
+	lastDocument() = document->toPlainText().toUtf8();
 	// Launch the background thread
 	QMetaObject::invokeMethod(&semantics, "launch", Q_ARG(char, threadSentinel));
 	//BackgroundUpdateSemantics::triggerThread(threadSentinel);
@@ -273,7 +221,7 @@ void CxxEditor::handleTextChanged(int pos, int removed, int added) {
 
 // This function is run in the background thread. It must be careful when
 // accessing class members it shares with the main thread
-void CxxEditor::reparseDocument(char s) {
+void CxxModel::reparseDocument(char s) {
 	// Fail early if this execution is already invalid
 	if(s != threadSentinel) return;
 
@@ -313,10 +261,10 @@ void CxxEditor::reparseDocument(char s) {
 			unsigned len = 1;
 			while(offset+len < (unsigned)documentCopy.length() && isalnum(documentCopy.at(offset+len))) len++;
 			if(sev == CXDiagnostic_Error) {
-				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), mColourScheme->error(), col-1, len));
+				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), colours->error(), col-1, len));
 			}
 			if(sev == CXDiagnostic_Warning) {
-				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), mColourScheme->warning(), col-1, len));
+				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), colours->warning(), col-1, len));
 
 			}
 			clang_disposeString(str);
@@ -366,12 +314,12 @@ void CxxEditor::reparseDocument(char s) {
 			clang_getSpellingLocation(clang_getRangeEnd(r),NULL,(unsigned*)&range.endLine,(unsigned*)&range.endCol,NULL);
 			switch(clang_getTokenKind(tokens[i])) {
 			case CXToken_Comment:
-				Helper::appendStyle(*blockHighlightStyles, mColourScheme->comment(), HighlightStyle::PLAIN, range);
+				Helper::appendStyle(*blockHighlightStyles, colours->comment(), HighlightStyle::PLAIN, range);
 				break;
 			case CXToken_Punctuation:
 				break;
 			case CXToken_Keyword:
-				Helper::appendStyle(*blockHighlightStyles, mColourScheme->keyword(), HighlightStyle::PLAIN, range);
+				Helper::appendStyle(*blockHighlightStyles, colours->keyword(), HighlightStyle::PLAIN, range);
 				break;
 
 			case CXToken_Identifier:
@@ -382,11 +330,11 @@ void CxxEditor::reparseDocument(char s) {
 					// todo backtrack so we also highlight the hash
 
 				case  CXCursor_MacroDefinition:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->preproc(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->preproc(), HighlightStyle::PLAIN, range);
 
 					break;
 				case CXCursor_MacroExpansion:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->preproc(), HighlightStyle::BOLD, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->preproc(), HighlightStyle::BOLD, range);
 					break;
 				// Declarations
 				case CXCursor_StructDecl:
@@ -395,44 +343,44 @@ void CxxEditor::reparseDocument(char s) {
 				case CXCursor_EnumDecl:
 				case CXCursor_TypedefDecl:
 				case CXCursor_ClassTemplate:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->structure(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->structure(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_FieldDecl:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->field(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->field(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_EnumConstantDecl:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->enumconst(), HighlightStyle::ITALIC, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->enumconst(), HighlightStyle::ITALIC, range);
 					break;
 				case CXCursor_FunctionDecl:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->func(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->func(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_VarDecl:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->var(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->var(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_ParmDecl:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->param(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->param(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_LabelStmt:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->label(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->label(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_CXXMethod:
 				case CXCursor_Constructor:
 				case CXCursor_Destructor:
 				case CXCursor_ConversionFunction: // overriding cast operator
 
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(),
+					Helper::appendStyle(*blockHighlightStyles, colours->method(),
 							 clang_CXXMethod_isVirtual(cursors[i]) ? HighlightStyle::ITALIC : HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_Namespace:
 				case CXCursor_NamespaceAlias:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->nspace(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->nspace(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_TemplateTypeParameter:
 				case CXCursor_NonTypeTemplateParameter:
 				case CXCursor_TemplateTemplateParameter:
 				case CXCursor_FunctionTemplate: // TODO where is this used?
 				case CXCursor_ClassTemplatePartialSpecialization: // TODO where is this used?
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->typeParam(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->typeParam(), HighlightStyle::PLAIN, range);
 					break;
 				// References
 				case CXCursor_ObjCSuperClassRef:
@@ -441,39 +389,39 @@ void CxxEditor::reparseDocument(char s) {
 				case CXCursor_TypeRef:
 				case CXCursor_CXXBaseSpecifier:
 				case CXCursor_TemplateRef:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->structure(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->structure(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_NamespaceRef:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->nspace(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->nspace(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_MemberRef: // TODO where is this used?
 				case CXCursor_VariableRef:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->field(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->field(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_LabelRef:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->label(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->label(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_OverloadedDeclRef:
 				case CXCursor_CallExpr:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->func(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->func(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_DeclRefExpr:
 					switch(clang_getCursorKind(clang_getCursorReferenced(cursors[i]))) {
 					case CXCursor_EnumConstantDecl:
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->enumconst(), HighlightStyle::ITALIC, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->enumconst(), HighlightStyle::ITALIC, range);
 						break;
 					case CXCursor_FunctionDecl:
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->func(), HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->func(), HighlightStyle::PLAIN, range);
 						break;
 					case CXCursor_VarDecl:
 						// todo it would be nice to make global variable references bold
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->var(),  HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->var(),  HighlightStyle::PLAIN, range);
 						break;
 					case CXCursor_ParmDecl:
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->param(), HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->param(), HighlightStyle::PLAIN, range);
 						break;
 					case CXCursor_CXXMethod:
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(), HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->method(), HighlightStyle::PLAIN, range);
 						break;
 
 					default:
@@ -487,10 +435,10 @@ void CxxEditor::reparseDocument(char s) {
 					case CXCursor_Constructor:
 					case CXCursor_Destructor:
 					case CXCursor_ConversionFunction: // overriding cast operator
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(), clang_CXXMethod_isVirtual(clang_getCursorReferenced(cursors[i])) ? HighlightStyle::ITALIC : HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->method(), clang_CXXMethod_isVirtual(clang_getCursorReferenced(cursors[i])) ? HighlightStyle::ITALIC : HighlightStyle::PLAIN, range);
 						break;
 					case CXCursor_FieldDecl:
-						Helper::appendStyle(*blockHighlightStyles, mColourScheme->field(), HighlightStyle::PLAIN, range);
+						Helper::appendStyle(*blockHighlightStyles, colours->field(), HighlightStyle::PLAIN, range);
 						break;
 					default:
 						ae_error("Unable to colour type " << clang_getCursorKind(clang_getCursorReferenced(cursors[i])));
@@ -516,13 +464,13 @@ void CxxEditor::reparseDocument(char s) {
 				case CXCursor_IntegerLiteral:
 				case CXCursor_FloatingLiteral:
 				case CXCursor_ImaginaryLiteral:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->numericconst(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->numericconst(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_StringLiteral:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->string(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->string(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_CharacterLiteral:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->charliteral(), HighlightStyle::PLAIN, range);
+					Helper::appendStyle(*blockHighlightStyles, colours->charliteral(), HighlightStyle::PLAIN, range);
 					break;
 				default:
 					break;
@@ -542,17 +490,17 @@ void CxxEditor::reparseDocument(char s) {
 }
 
 // Called when the thread has finished updating the styles
-void CxxEditor::reparseComplete(char s) {
+void CxxModel::reparseComplete(char s) {
 	// By this time, the user may have entered input again, invalidating
 	// the parsed colours/styles. If so, don't cause a rehighlight, since
 	// it is about to be overwritten anyway
 	if(s == threadSentinel) {
 		blockHighlightStyles.scopedLock();
 		blockDiagnosticStyles.scopedLock();
-		hlighter.rehighlight();
+		highlighter.rehighlight();
 	}
 }
-void CxxEditor::cursorInfoFound(char) {
+void CxxModel::cursorInfoFound(char) {
 	CXString spl = clang_getCursorKindSpelling(clang_getCursorKind(mCursor));
 	emit positionInfo(clang_getCString(spl));
 	clang_disposeString(spl);

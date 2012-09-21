@@ -1,7 +1,8 @@
 #include "mainwindow.hpp"
 #include "ui_mainwindow.h"
 
-#include "cxxeditor.hpp"
+#include "editor.hpp"
+#include "cxxmodel.hpp"
 #include "colourscheme.hpp"
 #include "log.hpp"
 
@@ -47,9 +48,10 @@ MainWindow::~MainWindow() {
 	delete m_tabs;
 }
 
-template<typename E>
+template<typename Model>
 Editor* MainWindow::createEditor() {
-	Editor* e = new E(this);
+	Editor* e = new Editor(this);
+	e->setCxxModel();
 	e->setColourScheme(mColourScheme);
 	connect(e, SIGNAL(dirtied(bool)), this, SLOT(handleDirtied(bool)));
 	//connect(e, SIGNAL(positionInfo(QString)), ui->statusbar, SLOT(showMessage(QString)));
@@ -60,7 +62,7 @@ Editor* MainWindow::createEditor() {
 
 void MainWindow::on_actionNew_triggered()
 {
-	Editor * e = createEditor<CxxEditor>();
+	Editor * e = createEditor<CxxModel>();
 	appendEditor(e);
 	insertRubbish(e);
 
@@ -159,7 +161,7 @@ void MainWindow::handleDirtied(bool dirty) {
 }
 
 void MainWindow::open(QString fileName) {
-	Editor * e = createEditor<CxxEditor>();
+	Editor * e = createEditor<CxxModel>();
 	if(e->openFile(fileName)) {
 		appendEditor(e);
 	} else {

@@ -34,7 +34,8 @@ add_definitions(
 add_executable(ae
  main.cpp
  mainwindow.cpp
- cxxeditor.cpp
+ codemodel.cpp
+ cxxmodel.cpp
  textstyle.cpp
  editor.cpp
  linenumberbar.hpp
