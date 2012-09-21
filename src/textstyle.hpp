@@ -31,14 +31,13 @@ private:
 
 class DiagStyle : public TextStyle {
 public:
-	enum Severity { WARNING, ERROR };
 	DiagStyle() {}
-	DiagStyle(QString message, Severity v, int s, int l);
+	DiagStyle(QString message, QColor underline, int s, int l);
 
 	virtual QTextCharFormat toTcf() const;
 // todo private
 public:
-	Severity m_severity;
+	QColor m_underline;
 	QString m_message;
 };
 

@@ -50,6 +50,14 @@ CxxEditor::CxxEditor(QWidget *parent) :
 	Editor::connect(&t, SIGNAL(complete(char)), this, SLOT(threadComplete(char)), Qt::QueuedConnection);
 }
 
+CxxEditor::~CxxEditor() {
+	disconnect(this);
+	disconnect(&hlighter);
+	hlighter.setDocument(0);
+	delete mCompleter;
+	delete mCompletionModel;
+}
+
 void CxxEditor::completionChosen(QString repl) {
 	mCompleter->popup()->hide();
 	QTextCursor tc = textCursor();
@@ -82,7 +90,7 @@ bool CxxEditor::event(QEvent *e) {
 		blockDiagnosticStyles.scopedLock();
 		for(int i=0, N=blockDiagnosticStyles()[row].size(); i!=N; ++i) {
 			const DiagStyle& ds = blockDiagnosticStyles()[row][i];
-			if(col > ds.start && col < ds.start + ds.len) {
+			if(col >= ds.start && col <= ds.start + ds.len) {
 				QToolTip::showText(QCursor::pos(), ds.m_message, this);
 				break;
 			} else QToolTip::hideText();
@@ -132,6 +140,14 @@ void CxxEditor::handleCursorMoved() {
 			document()->characterAt(cur.position()-1) == QChar('_'))) {
 		cur.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
 	}
+	//tu.lock();
+	CXFile f = clang_getFile(tu(), "a");
+	CXSourceLocation loc = clang_getLocationForOffset(tu(),f,cur.position());
+	CXCursor csr = clang_getCursor(tu(), loc);
+	// todo emit reference information
+	(void) csr;
+	//ae_info(clang_getCursorKind(csr));
+	//tu.unlock();
 	// Save the cursor, so it can be accessed when the completion is requested
 	mCompletionPrefix =  cur.selectedText();
 	mCompletionCursor = cur;
@@ -230,13 +246,19 @@ void CxxEditor::doThreadWork(char s) {
 	// now actually do the processing on the document. This is the part
 	// that actually takes up cycles
 	CXUnsavedFile thisfile;
-	thisfile.Filename = "a.cpp";
+	thisfile.Filename = "a";
 	thisfile.Contents = documentCopy.constData();
 	thisfile.Length = documentCopy.size();
-	const char incpath[] = "-I/usr/lib/clang/" CLANG_VER "/include";
-	const char* argv = incpath;
+	const char* args[6];
+	args[0] = "-x";
+	args[1] = "c++";
+	args[2] = "-I/usr/lib/clang/" CLANG_VER "/include";
+	args[3] = "-pedantic";
+	args[4] = "-Wall";
+	args[5] = "-Wextra";
+	//const char* argv = incpath;
 	tu.lock();
-	tu() = clang_parseTranslationUnit(index, "a.cpp",&argv, 1, &thisfile, 1, CXTranslationUnit_Incomplete);
+	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, &thisfile, 1, CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 	tu.unlock();
 	CXCursor Cursor = clang_getTranslationUnitCursor(tu());
 	CXSourceRange sr= clang_getCursorExtent(Cursor);
@@ -257,12 +279,13 @@ void CxxEditor::doThreadWork(char s) {
 			CXString str = clang_formatDiagnostic(diag, clang_defaultDiagnosticDisplayOptions());
 			unsigned line, col, offset;
 			clang_getSpellingLocation(loc,NULL,&line,&col,&offset);
+			unsigned len = 1;
+			while(offset+len < (unsigned)documentCopy.length() && isalnum(documentCopy.at(offset+len))) len++;
 			if(sev == CXDiagnostic_Error) {
-				int len = 1;
-				while(isalnum(documentCopy.at(offset+len))) len++;
-				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), DiagStyle::ERROR, col-1, len));
+				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), mColourScheme->error(), col-1, len));
 			}
 			if(sev == CXDiagnostic_Warning) {
+				(*blockDiagnosticStyles)[line-1].append(DiagStyle(clang_getCString(str), mColourScheme->warning(), col-1, len));
 
 			}
 			clang_disposeString(str);
@@ -322,11 +345,25 @@ void CxxEditor::doThreadWork(char s) {
 
 			case CXToken_Identifier:
 				switch(k) {
+				// preprocessor
+				case CXCursor_PreprocessingDirective:
+				case CXCursor_InclusionDirective:
+					// todo backtrack so we also highlight the hash
+
+				case  CXCursor_MacroDefinition:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->preproc(), HighlightStyle::PLAIN, range);
+
+					break;
+				case CXCursor_MacroExpansion:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->preproc(), HighlightStyle::BOLD, range);
+					break;
+				// Declarations
 				case CXCursor_StructDecl:
 				case CXCursor_UnionDecl:
 				case CXCursor_ClassDecl:
 				case CXCursor_EnumDecl:
 				case CXCursor_TypedefDecl:
+				case CXCursor_ClassTemplate:
 					Helper::appendStyle(*blockHighlightStyles, mColourScheme->structure(), HighlightStyle::PLAIN, range);
 					break;
 				case CXCursor_FieldDecl:
@@ -344,58 +381,105 @@ void CxxEditor::doThreadWork(char s) {
 				case CXCursor_ParmDecl:
 					Helper::appendStyle(*blockHighlightStyles, mColourScheme->param(), HighlightStyle::PLAIN, range);
 					break;
-				case CXCursor_CXXMethod:
-					Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(), HighlightStyle::PLAIN, range);
+				case CXCursor_LabelStmt:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->label(), HighlightStyle::PLAIN, range);
 					break;
+				case CXCursor_CXXMethod:
+				case CXCursor_Constructor:
+				case CXCursor_Destructor:
+				case CXCursor_ConversionFunction: // overriding cast operator
+
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(),
+							 clang_CXXMethod_isVirtual(cursors[i]) ? HighlightStyle::ITALIC : HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_Namespace:
+				case CXCursor_NamespaceAlias:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->nspace(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_TemplateTypeParameter:
+				case CXCursor_NonTypeTemplateParameter:
+				case CXCursor_TemplateTemplateParameter:
+				case CXCursor_FunctionTemplate: // TODO where is this used?
+				case CXCursor_ClassTemplatePartialSpecialization: // TODO where is this used?
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->typeParam(), HighlightStyle::PLAIN, range);
+					break;
+				// References
+				case CXCursor_ObjCSuperClassRef:
+				case CXCursor_ObjCProtocolRef:
+				case CXCursor_ObjCClassRef: // TODO wtf is objective C :)
+				case CXCursor_TypeRef:
+				case CXCursor_CXXBaseSpecifier:
+				case CXCursor_TemplateRef:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->structure(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_NamespaceRef:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->nspace(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_MemberRef: // TODO where is this used?
+				case CXCursor_VariableRef:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->field(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_LabelRef:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->label(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_OverloadedDeclRef:
+				case CXCursor_CallExpr:
+					Helper::appendStyle(*blockHighlightStyles, mColourScheme->func(), HighlightStyle::PLAIN, range);
+					break;
+				case CXCursor_DeclRefExpr:
+					switch(clang_getCursorKind(clang_getCursorReferenced(cursors[i]))) {
+					case CXCursor_EnumConstantDecl:
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->enumconst(), HighlightStyle::ITALIC, range);
+						break;
+					case CXCursor_FunctionDecl:
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->func(), HighlightStyle::PLAIN, range);
+						break;
+					case CXCursor_VarDecl:
+						// todo it would be nice to make global variable references bold
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->var(),  HighlightStyle::PLAIN, range);
+						break;
+					case CXCursor_ParmDecl:
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->param(), HighlightStyle::PLAIN, range);
+						break;
+					case CXCursor_CXXMethod:
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(), HighlightStyle::PLAIN, range);
+						break;
+
+					default:
+						ae_error("Unable to colour type " << clang_getCursorKind(clang_getCursorReferenced(cursors[i])));
+						break;
+					}
+					break;
+				case CXCursor_MemberRefExpr:
+					switch(clang_getCursorKind(clang_getCursorReferenced(cursors[i]))) {
+					case CXCursor_CXXMethod:
+					case CXCursor_Constructor:
+					case CXCursor_Destructor:
+					case CXCursor_ConversionFunction: // overriding cast operator
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->method(), clang_CXXMethod_isVirtual(clang_getCursorReferenced(cursors[i])) ? HighlightStyle::ITALIC : HighlightStyle::PLAIN, range);
+						break;
+					case CXCursor_FieldDecl:
+						Helper::appendStyle(*blockHighlightStyles, mColourScheme->field(), HighlightStyle::PLAIN, range);
+						break;
+					default:
+						ae_error("Unable to colour type " << clang_getCursorKind(clang_getCursorReferenced(cursors[i])));
+						break;
+					}
+					break;
+				case CXCursor_UnexposedExpr:
+					ae_error("Unexposed expression");
+					break;
+				// deliberately not handling
+				case CXCursor_CStyleCastExpr:
+				case CXCursor_CompoundStmt:
+					break;
+
 				default:
+					//ae_error("Unhandled syntactic type " << k);
 					break;
 				}
 				break;
 
-
-#if 0
-				/** \brief A typedef */
-				CXCursor_TypedefDecl                   = 20,
-						/** \brief A C++ class method. */
-						CXCursor_CXXMethod                     = 21,
-						/** \brief A C++ namespace. */
-						CXCursor_Namespace                     = 22,
-						/** \brief A linkage specification, e.g. 'extern "C"'. */
-						CXCursor_LinkageSpec                   = 23,
-						/** \brief A C++ constructor. */
-						CXCursor_Constructor                   = 24,
-						/** \brief A C++ destructor. */
-						CXCursor_Destructor                    = 25,
-						/** \brief A C++ conversion function. */
-						CXCursor_ConversionFunction            = 26,
-						/** \brief A C++ template type parameter. */
-						CXCursor_TemplateTypeParameter         = 27,
-						/** \brief A C++ non-type template parameter. */
-						CXCursor_NonTypeTemplateParameter      = 28,
-						/** \brief A C++ template template parameter. */
-						CXCursor_TemplateTemplateParameter     = 29,
-						/** \brief A C++ function template. */
-						CXCursor_FunctionTemplate              = 30,
-						/** \brief A C++ class template. */
-						CXCursor_ClassTemplate                 = 31,
-						/** \brief A C++ class template partial specialization. */
-						CXCursor_ClassTemplatePartialSpecialization = 32,
-						/** \brief A C++ namespace alias declaration. */
-						CXCursor_NamespaceAlias                = 33,
-						/** \brief A C++ using directive. */
-						CXCursor_UsingDirective                = 34,
-						/** \brief A C++ using declaration. */
-						CXCursor_UsingDeclaration              = 35,
-						/** \brief A C++ alias declaration */
-						CXCursor_TypeAliasDecl                 = 36,
-						/** \brief An Objective-C @synthesize definition. */
-						CXCursor_ObjCSynthesizeDecl            = 37,
-						/** \brief An Objective-C @dynamic definition. */
-						CXCursor_ObjCDynamicDecl               = 38,
-						/** \brief An access specifier. */
-						CXCursor_CXXAccessSpecifier            = 39,
-						break;
-#endif
 			case CXToken_Literal:
 				switch(k) {
 				case CXCursor_IntegerLiteral:

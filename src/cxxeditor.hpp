@@ -20,6 +20,7 @@ class CxxEditor : public Editor, private ThreadCaller {
 	Q_OBJECT
 public:
 	CxxEditor(QWidget* parent = 0);
+	~CxxEditor();
 	// unfortunately cannot inherit qabstractlistmodel
 	int rowCount(const QModelIndex &) const;
 	QVariant data(const QModelIndex &, int ) const;

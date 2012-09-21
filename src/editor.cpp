@@ -22,7 +22,7 @@ Editor::Editor(QWidget *parent) :
 
 	QTextOption opts;
 	opts.setFlags(QTextOption::ShowTabsAndSpaces);
-	setFont(QFont("Inconsolata", 11));
+	setFont(QFont("Deja Vu Sans Mono", 12));
 	setTabChangesFocus(false);
 	setUndoRedoEnabled(true);
 	setLineWrapMode(WidgetWidth);
@@ -161,7 +161,7 @@ void Editor::highlightCurrentLine() {
 
 void Editor::lineNumberBarPaintEvent(QPaintEvent *event) {
 	QPainter painter(mLineNumberBar);
-	painter.fillRect(event->rect(), Qt::darkGray);
+	painter.fillRect(event->rect(), mColourScheme->lineNumberBackground());
 
 	QTextBlock block = firstVisibleBlock();
 	int blockNumber = block.blockNumber();
@@ -174,7 +174,7 @@ void Editor::lineNumberBarPaintEvent(QPaintEvent *event) {
 			if(block == textCursor().block())
 				f.setBold(true);
 			painter.setFont(f);
-			painter.setPen(Qt::white);
+			painter.setPen(mColourScheme->foreground());
 			painter.drawText(0, top, mLineNumberBar->width()-4, fontMetrics().height(), Qt::AlignRight, number);
 		}
 

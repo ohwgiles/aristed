@@ -13,18 +13,19 @@ QTextCharFormat HighlightStyle::toTcf() const {
 	QTextCharFormat f;
 	f.setForeground(m_colour);
 	f.setFontItalic(m_style & ITALIC);
+	f.setFontWeight((m_style & BOLD) ? QFont::Bold : QFont::Normal);
 	return f;
 }
 
-DiagStyle::DiagStyle(QString message, Severity v, int s, int l) :
+DiagStyle::DiagStyle(QString message, QColor underline, int s, int l) :
 	TextStyle(s, l),
-	m_severity(v),
+	m_underline(underline),
 	m_message(message)
 {}
 
 QTextCharFormat DiagStyle::toTcf() const {
 	QTextCharFormat f;
-	f.setUnderlineColor(m_severity == ERROR ? Qt::red : Qt::yellow);
+	f.setUnderlineColor(m_underline);
 	f.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
 	return f;
 }

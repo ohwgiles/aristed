@@ -15,7 +15,7 @@
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
-	mColourScheme(new colour::Hinterland())
+	mColourScheme(new colour::SolarizedLight())
 {
 	ui->setupUi(this);
 	m_tabs = new TabWidget(this);
@@ -62,6 +62,7 @@ void MainWindow::on_actionNew_triggered()
 
 void MainWindow::insertRubbish(Editor *e) {
 	e->insertPlainText("/* This is sample C++ code*/ \n"
+"#include <iostream>\n"
 "#include <cstdio>\n"
 "#include <vector>\n"
 "#define MACRO(x) x\n"
