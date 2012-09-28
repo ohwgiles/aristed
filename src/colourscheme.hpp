@@ -99,6 +99,15 @@ struct SolarizedLight : public SolarizedCommon {
 	virtual QColor warning() const { return orange(); }
 };
 
+struct SolarizedDark : public SolarizedCommon {
+	virtual QColor background() const { return base03(); }
+	virtual QColor lineNumberBackground() const { return base02(); }
+	virtual QColor foreground() const { return base0(); }
+	virtual QColor currentLineBg() const { return base02(); }
+	virtual QColor comment()    const { return base01(); }
+	virtual QColor emphasised() const { return base1(); }
+	virtual QColor warning() const { return yellow(); }
+};
 
 }
 

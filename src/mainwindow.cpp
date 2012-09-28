@@ -16,7 +16,7 @@
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
-	mColourScheme(new colour::SolarizedLight())
+	mColourScheme(new colour::SolarizedDark())
 {
 	ui->setupUi(this);
 	m_tabs = new TabWidget(this);
