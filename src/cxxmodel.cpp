@@ -37,8 +37,8 @@ CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&co
 	const char* args[6];
 	args[0] = "-x";
 	args[1] = "c++";
-	ae_info(CLANG_VER);
-	args[2] = "-I/usr/lib/clang/" CLANG_VER "/include";
+	ae_info(ARCH_HEADERS);
+	args[2] = "-I" ARCH_HEADERS;
 	args[3] = "-pedantic";
 	args[4] = "-Wall";
 	args[5] = "-Wextra";
