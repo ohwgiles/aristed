@@ -16,7 +16,7 @@ public:
 	virtual void handleTextChanged(QTextDocument* , int , int , int ) {}
 	virtual void prepareCompletions(QTextDocument* ) {}
 	virtual void cursorPositionChanged(QTextDocument* , QTextCursor ) {}
-	virtual void keyPressEvent(QKeyEvent*) {}
+	virtual bool keyPressEvent(QKeyEvent*) { return false; }
 	virtual QString getTipAt(int , int ) { return ""; }
 };
 

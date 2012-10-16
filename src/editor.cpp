@@ -114,19 +114,21 @@ void Editor::setDirty(bool b) {
 }
 void Editor::keyPressEvent(QKeyEvent *e) {
 	// allow the model to supply some key events
-	model->keyPressEvent(e);
+	if(model->keyPressEvent(e))
+		return;
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
 		showCompletions();
 		return;
 	}
 
-// If the completion window is available, enter/tab inserts the completion
-if(mCompleter->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
-	completionChosen(mCompleter->currentCompletion());
-	return;
-}
-QPlainTextEdit::keyPressEvent(e);
+	// If the completion window is available, enter/tab inserts the completion
+	if(mCompleter->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
+		completionChosen(mCompleter->currentCompletion());
+		return;
+	}
+
+	QPlainTextEdit::keyPressEvent(e);
 }
 
 bool Editor::event(QEvent *e) {
