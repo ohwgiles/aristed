@@ -80,14 +80,56 @@ bool CxxModel::keyPressEvent(QPlainTextEdit *editor, QKeyEvent * event) {
 		editor->setTextCursor(c);
 		return true;
 	}} insertMatched;
-
+	// When placing the left character, auto-fill in the right character
 	if(event->key() == Qt::Key_ParenLeft) return insertMatched(editor,"()");
 	if(event->key() == Qt::Key_BraceLeft) return insertMatched(editor,"{}");
 	if(event->key() == Qt::Key_BracketLeft) return insertMatched(editor,"[]");
 	if(event->key() == Qt::Key_QuoteDbl) return insertMatched(editor,"\"\"");
 	if(event->key() == Qt::Key_Apostrophe) return insertMatched(editor,"''");
 
+	static struct { QChar operator()(QPlainTextEdit* editor, int p) const {
+			return editor->toPlainText().at(editor->textCursor().position()+p);
+	}} chrAt;
 
+	// Debatable: when entering a right character, pass over an existing one
+	if(event->key() == Qt::Key_ParenRight && chrAt(editor, 0) == ')') return editor->setTextCursor(QTextCursor(editor->document()->docHandle(), editor->textCursor().position()+1)), true;
+	if(event->key() == Qt::Key_BraceLeft) return insertMatched(editor,"{}");
+	if(event->key() == Qt::Key_BracketLeft) return insertMatched(editor,"[]");
+	if(event->key() == Qt::Key_QuoteDbl) return insertMatched(editor,"\"\"");
+	if(event->key() == Qt::Key_Apostrophe) return insertMatched(editor,"''");
+
+
+
+	if(event->key() == Qt::Key_Return) {
+		ae_info("indent!");
+		QString line = editor->textCursor().block().text();
+		IndentType it = getIndentType(line);
+		int lastIndent = getIndentLevel(line, it);
+		switch(clang_getCursorKind(mCursor)) {
+		// For these types of statements, begin the next line +1 indent level
+		case CXCursor_IfStmt:
+		case CXCursor_ForStmt:
+		case CXCursor_WhileStmt:
+		case CXCursor_DoStmt:
+		case CXCursor_SwitchStmt:
+			editor->insertPlainText("\n" + indentString(lastIndent + 1, it));
+			break;
+		default:
+			// Or if the line ends with {, begin next line +1 indent level
+			if(chrAt(editor,-1) == '{') {
+				editor->insertPlainText("\n" + indentString(lastIndent + 1, it));
+				if(chrAt(editor,0) == '}') {
+					QString nextLineInsert = "\n" + indentString(lastIndent, it);
+					editor->insertPlainText(nextLineInsert);
+					editor->setTextCursor(QTextCursor(editor->document()->docHandle(), editor->textCursor().position() - nextLineInsert.length()));
+				}
+			} else {
+				// normal entering: begin next line with the same indent level
+				editor->insertPlainText("\n" + indentString(lastIndent, it));
+			}
+		}
+		return true;
+	}
 	return false;
 }
 
@@ -507,5 +549,6 @@ void CxxModel::reparseComplete(char s) {
 void CxxModel::cursorInfoFound(char) {
 	CXString spl = clang_getCursorKindSpelling(clang_getCursorKind(mCursor));
 	emit positionInfo(clang_getCString(spl));
+	ae_info(clang_getCString(spl));
 	clang_disposeString(spl);
 }
