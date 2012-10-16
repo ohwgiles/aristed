@@ -13,7 +13,6 @@
 class QCompleter;
 //typedef void* CXIndex;
 //typedef struct CXTranslationUnitImpl *CXTranslationUnit;
-class CompletionModelProxy;
 
 class CxxModel;
 class Editor;
@@ -39,7 +38,6 @@ class CxxModel : public CodeModel {
 public:
 	CxxModel(QSyntaxHighlighter& highlighter, const ColourScheme* const& colours);
 	~CxxModel();
-	// unfortunately cannot inherit qabstractlistmodel
 	int rowCount(const QModelIndex &) const;
 	QVariant data(const QModelIndex &, int ) const;
 	QString getTipAt(int row, int col);
@@ -47,7 +45,6 @@ void handleTextChanged(QTextDocument* document, int position, int, int);
 protected:
 virtual QString completionPrefix() const { return mCompletionPrefix; }
 	QThread* backgroundWorker;
-	CompletionModelProxy* mCompletionModel;
 	CXIndex index;
 	QVector<QString> completionResults;
 	Lockable<QTextCursor> mCompletionCursor;

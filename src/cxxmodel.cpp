@@ -10,19 +10,6 @@
 #include <clang-c/Index.h>
 #include <QThread>
 
-// This class is used so QCompleter can have an AbstractListModel
-// to get its results out of. Ideally, CxxEditor would inherit this, but
-// then it multiply inherits QObject and things get nasty. So use
-// a stupid proxy class.
-class CompletionModelProxy : public QAbstractListModel {
-public:
-	CompletionModelProxy(CxxModel* e) : e(e) {}
-	int rowCount(const QModelIndex &idx) const { return e->rowCount(idx); }
-	QVariant data(const QModelIndex &idx, int role) const { return e->data(idx,role); }
-private:
-	CxxModel* e;
-};
-
 int CxxModel::rowCount(const QModelIndex &) const {
 	return completionResults.size();
 }
@@ -46,9 +33,6 @@ CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&co
 	semantics(this, &CxxModel::reparseDocument),
 	cursorInfo(this, &CxxModel::findCursorInfo)
 {
-//	setMouseTracking(true);
-	mCompletionModel = new CompletionModelProxy(this);
-
 	index = clang_createIndex(0,0);
 	const char* args[6];
 	args[0] = "-x";
@@ -73,7 +57,6 @@ CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&co
 
 CxxModel::~CxxModel() {
 	disconnect(this);
-	delete mCompletionModel;
 }
 
 QString CxxModel::getTipAt(int row, int col) {
