@@ -43,6 +43,7 @@ public:
 	QString getTipAt(int row, int col);
 void handleTextChanged(QTextDocument* document, int position, int, int);
 protected:
+bool keyPressEvent(QPlainTextEdit*,QKeyEvent *);
 virtual QString completionPrefix() const { return mCompletionPrefix; }
 	QThread* backgroundWorker;
 	CXIndex index;

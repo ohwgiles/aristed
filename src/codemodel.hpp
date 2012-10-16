@@ -5,7 +5,7 @@
 #include <QTextCursor>
 class TextStyle;
 class QKeyEvent;
-
+class QPlainTextEdit;
 class CodeModel : public QAbstractListModel
 {
 public:
@@ -16,7 +16,7 @@ public:
 	virtual void handleTextChanged(QTextDocument* , int , int , int ) {}
 	virtual void prepareCompletions(QTextDocument* ) {}
 	virtual void cursorPositionChanged(QTextDocument* , QTextCursor ) {}
-	virtual bool keyPressEvent(QKeyEvent*) { return false; }
+	virtual bool keyPressEvent(QPlainTextEdit*,QKeyEvent*) { return false; }
 	virtual QString getTipAt(int , int ) { return ""; }
 };
 

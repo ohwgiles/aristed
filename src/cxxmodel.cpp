@@ -69,6 +69,27 @@ QString CxxModel::getTipAt(int row, int col) {
 	return "";
 }
 
+bool CxxModel::keyPressEvent(QPlainTextEdit *editor, QKeyEvent * event) {
+
+	// Simple local function to insert matching chars. Primitively inserts
+	// the whole text then backtracks one character
+	static struct { bool operator()(QPlainTextEdit *editor, QString txt) const {
+		editor->insertPlainText(txt);
+		QTextCursor c = editor->textCursor();
+		c.movePosition(QTextCursor::PreviousCharacter);
+		editor->setTextCursor(c);
+		return true;
+	}} insertMatched;
+
+	if(event->key() == Qt::Key_ParenLeft) return insertMatched(editor,"()");
+	if(event->key() == Qt::Key_BraceLeft) return insertMatched(editor,"{}");
+	if(event->key() == Qt::Key_BracketLeft) return insertMatched(editor,"[]");
+	if(event->key() == Qt::Key_QuoteDbl) return insertMatched(editor,"\"\"");
+	if(event->key() == Qt::Key_Apostrophe) return insertMatched(editor,"''");
+
+
+	return false;
+}
 
 void CxxModel::prepareCompletions(QTextDocument* doc) {
 	// does not need to lock it since this runs in the same thread as the set

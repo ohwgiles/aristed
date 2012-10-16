@@ -27,6 +27,7 @@ public:
 	bool saveFile(QString filename);
 
 	void setCxxModel();
+
 	Highlighter& highlighter() { return hlighter; }
 
 

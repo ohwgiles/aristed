@@ -114,7 +114,7 @@ void Editor::setDirty(bool b) {
 }
 void Editor::keyPressEvent(QKeyEvent *e) {
 	// allow the model to supply some key events
-	if(model->keyPressEvent(e))
+	if(model->keyPressEvent(this, e))
 		return;
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
