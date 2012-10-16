@@ -32,7 +32,7 @@ private:
 	CxxModel* e;
 	void (CxxModel::*mfun)(char);
 };
-class ColourScheme;
+struct ColourScheme;
 class CxxModel : public CodeModel {
 	Q_OBJECT
 public:

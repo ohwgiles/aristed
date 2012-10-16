@@ -5,7 +5,7 @@
 
 #include "highlighter.hpp"
 class CodeModel;
-class ColourScheme;
+struct ColourScheme;
 class LineNumberBar;
 class TextStyle;
 class QCompleter;

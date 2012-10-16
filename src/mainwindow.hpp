@@ -4,7 +4,7 @@
 #include <QMainWindow>
 
 class Editor;
-class ColourScheme;
+struct ColourScheme;
 class QLabel;
 namespace Ui {
 class MainWindow;
