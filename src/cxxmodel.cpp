@@ -57,6 +57,9 @@ CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&co
 
 CxxModel::~CxxModel() {
 	disconnect(this);
+	backgroundWorker->exit();
+	backgroundWorker->wait();
+	delete backgroundWorker;
 }
 
 QString CxxModel::getTipAt(int row, int col) {
@@ -304,6 +307,7 @@ void CxxModel::reparseDocument(char s) {
 			CXString str = clang_formatDiagnostic(diag, clang_defaultDiagnosticDisplayOptions());
 			unsigned line, col, offset;
 			clang_getSpellingLocation(loc,NULL,&line,&col,&offset);
+			ae_info(clang_getCString(str));
 			unsigned len = 1;
 			while(offset+len < (unsigned)documentCopy.length() && isalnum(documentCopy.at(offset+len))) len++;
 			if(sev == CXDiagnostic_Error) {

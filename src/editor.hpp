@@ -13,6 +13,7 @@ class Editor : public QPlainTextEdit {
     Q_OBJECT
 public:
 	explicit Editor(QWidget *parent = 0);
+	~Editor();
 	virtual void setColourScheme(ColourScheme* scheme);
 
 	QTextCursor wordUnderCursor() const;

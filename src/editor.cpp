@@ -47,6 +47,12 @@ Editor::Editor(QWidget *parent) :
 
 
 }
+
+Editor::~Editor() {
+	delete model;
+	model = 0;
+}
+
 const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->getStyle(blockNumber, index); }
 
 void Editor::setCxxModel() {
@@ -74,6 +80,7 @@ void Editor::setColourScheme(ColourScheme* scheme) {
 
 }
 void Editor::handleTextChanged(int pos, int removed, int added) {
+	if(model)
 	model->handleTextChanged(document(), pos, removed, added);
 }
 
