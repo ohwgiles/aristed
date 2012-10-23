@@ -91,7 +91,8 @@ bool CxxModel::keyPressEvent(QPlainTextEdit *editor, QKeyEvent * event) {
 	if(event->key() == Qt::Key_Apostrophe) return insertMatched(editor,"''");
 
 	static struct { QChar operator()(QPlainTextEdit* editor, int p) const {
-			return editor->toPlainText().at(editor->textCursor().position()+p);
+			int pos = editor->textCursor().position();
+			return pos == 0 ? editor->toPlainText().at(pos) : editor->toPlainText().at(pos+p);
 	}} chrAt;
 
 	// Debatable: when entering a right character, pass over an existing one
