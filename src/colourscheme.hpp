@@ -76,16 +76,16 @@ struct SolarizedCommon : public ColourScheme, public Solarized {
 	QColor numericconst() const { return yellow(); }
 	QColor keyword()        const { return blue(); }
 	QColor preproc() const { return orange(); }
-	QColor structure() const { return violet(); }
-	QColor enumconst() const { return yellow(); }
-	QColor method() const { return cyan(); }
-	QColor field() const { return yellow(); }
-	QColor func() const { return cyan(); }
+	QColor structure() const { return cyan(); }
+	QColor enumconst() const { return magenta(); }
+	QColor method() const { return violet(); }
+	QColor field() const { return emphasised(); }
+	QColor func() const { return violet(); }
 	virtual QColor emphasised() const = 0;
 	QColor var() const { return emphasised(); }
 	QColor label() const { return red(); }
 	QColor param() const { return emphasised(); }
-	QColor nspace() const { return foreground(); }
+	QColor nspace() const { return emphasised(); }
 	QColor typeParam() const { return magenta(); }
 };
 
