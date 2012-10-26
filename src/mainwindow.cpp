@@ -13,12 +13,23 @@
 #include <QPushButton>
 #include <QProcess>
 #include <QLabel>
+#include <QFileSystemModel>
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
 	mColourScheme(new colour::SolarizedDark())
 {
 	ui->setupUi(this);
+
+	dirModel_ = new QFileSystemModel();
+	ui->fileView->setModel(dirModel_);
+	dirModel_->setRootPath(QDir::homePath());
+	ui->fileView->setRootIndex(dirModel_->index(QDir::homePath()));
+	ui->fileView->setColumnHidden(1, true);
+	ui->fileView->setColumnHidden(2, true);
+	ui->fileView->setColumnHidden(3, true);
+	ui->fileView->header()->hide();
+
 	m_tabs = new TabWidget(this);
 	QIcon icon(":icon.png");
 
@@ -26,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	this->setCentralWidget(m_tabs);
 	connect(m_tabs, SIGNAL(currentChanged(int)), this, SLOT(currentTabChanged(int)));
+
 
 	cursor_position = new QLabel();
 	ui->statusbar->addPermanentWidget(cursor_position);
@@ -58,7 +70,7 @@ Editor* MainWindow::createEditor() {
 	Editor* e = new Editor(this);
 	e->setCxxModel();
 	e->setColourScheme(mColourScheme);
-	connect(e, SIGNAL(dirtied(bool)), this, SLOT(handleDirtied(bool)));
+	connect(e, SIGNAL(dirtied(QWidget*,bool)), this, SLOT(handleDirtied(QWidget*,bool)));
 	//connect(e, SIGNAL(positionInfo(QString)), ui->statusbar, SLOT(showMessage(QString)));
 	connect(e, SIGNAL(updateCursorPosition(QString)), cursor_position, SLOT(setText(QString)));
 
@@ -71,7 +83,7 @@ void MainWindow::on_actionNew_triggered()
 	appendEditor(e);
 	insertRubbish(e);
 
-//	open("/home/og/dev/clang-3.0.src/lib/Sema/SemaTemplateInstantiate.cpp");
+	//open("/home/og/dev/clang-3.0.src/lib/Sema/SemaTemplateInstantiate.cpp");
 }
 
 void MainWindow::insertRubbish(Editor *e) {
@@ -137,29 +149,33 @@ bool MainWindow::closeEditor(int tabindex) {
 //	Editor *e = m_editors[tabindex];
 	Editor *e = (Editor*) m_tabs->widget(tabindex);
 
-	QMessageBox confirm;
-	confirm.setIcon(QMessageBox::Question);
-	confirm.setText("The document `" + e->displayName() + "' has been modified");
-	confirm.setInformativeText("Do you want to save your changes?");
-	confirm.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-	QAbstractButton* diffButton = confirm.addButton("Show diff...", QMessageBox::ActionRole);
+	if(e->dirty()) {
 
-	int result = confirm.exec();
-	while(confirm.clickedButton() == diffButton) {
-		on_actionDiff_to_Saved_triggered();
-		result = confirm.exec();
-	}
+		QMessageBox confirm;
+		confirm.setIcon(QMessageBox::Question);
+		confirm.setText("The document `" + e->displayName() + "' has been modified");
+		confirm.setInformativeText("Do you want to save your changes?");
+		confirm.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+		QAbstractButton* diffButton = confirm.addButton("Show diff...", QMessageBox::ActionRole);
 
-	switch(result) {
-	case QMessageBox::Save:
-		if(!on_actionSave_triggered()) return false;
-		break;
-	case QMessageBox::Discard:
-		break;
-	case QMessageBox::Cancel:
-		return false;
-	default:
-		ae_assert(false && "branch can't happen");
+		int result = confirm.exec();
+		while(confirm.clickedButton() == diffButton) {
+			on_actionDiff_to_Saved_triggered();
+			result = confirm.exec();
+		}
+
+		switch(result) {
+		case QMessageBox::Save:
+			if(!on_actionSave_triggered()) return false;
+			break;
+		case QMessageBox::Discard:
+			break;
+		case QMessageBox::Cancel:
+			return false;
+		default:
+			ae_assert(false && "branch can't happen");
+		}
+
 	}
 
 //	delete m_editors[tabindex];
@@ -216,14 +232,15 @@ bool MainWindow::closeEditors(int except) {
 	return m_tabs->count()==0;
 }
 
-void MainWindow::handleDirtied(bool dirty) {
+void MainWindow::handleDirtied(QWidget * w, bool dirty) {
 	//const Editor& e = *m_editors[m_tabs->currentIndex()];
-	const Editor* e = (Editor*) m_tabs->currentWidget();
+	const Editor* e = (Editor*) w;
 	ui->actionDiff_to_Saved->setEnabled(dirty && e->fileExists());
 	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionSave->setEnabled(dirty);
-	ae_info("Setting on index " << m_tabs->currentIndex());
-	m_tabs->tabBar()->setTabTextColor(m_tabs->currentIndex(), dirty? Qt::red : Qt::black);
+	int index = m_tabs->indexOf(w);
+	ae_info("Setting on index " << index);
+	m_tabs->tabBar()->setTabTextColor(index, dirty? Qt::red : Qt::black);
 }
 
 void MainWindow::open(QString fileName) {
@@ -341,4 +358,21 @@ void MainWindow::on_actionClose_triggered() {
 void MainWindow::on_actionClose_Others_triggered()
 {
 	closeEditors(m_tabs->currentIndex());
+}
+
+void MainWindow::on_actionShow_File_Manager_triggered()
+{
+	if(ui->fileTree->isHidden())
+		ui->fileTree->show();
+	else
+		ui->fileTree->hide();
+}
+
+void MainWindow::on_fileView_activated(const QModelIndex &index)
+{
+	if(!dirModel_->isDir(index)) {
+		QString file = dirModel_->filePath(index);
+		open(file);
+	}
+
 }

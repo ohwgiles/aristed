@@ -79,7 +79,7 @@ void Editor::setColourScheme(ColourScheme* scheme) {
 
 }
 void Editor::handleTextChanged(int pos, int removed, int added) {
-	ae_info("doc modified");
+	ae_info("handleTextChanged");
 	setDirty(true);
 
 	if(model)
@@ -119,7 +119,7 @@ void Editor::setDirty(bool b) {
 	// only emit the signal if status changed
 	if(mDirty != b) {
 		mDirty = b;
-		emit dirtied(b);
+		emit dirtied(this, b);
 	}
 }
 void Editor::keyPressEvent(QKeyEvent *e) {
@@ -160,18 +160,25 @@ bool Editor::event(QEvent *e) {
 bool Editor::openFile(QString fileName) {
 	QFile f(fileName);
 	if(f.open(QFile::ReadOnly)) {
-		disconnect(SIGNAL(modificationChanged(bool)));
+		//disconnect(SIGNAL(modificationChanged(bool)));
+		mDirty = true;
 		clear();
 		insertPlainText(QString(f.readAll()));
 		filePath_ = fileName;
 		fileExists_ = true;
 		setDirty(false);
-		connect(this, SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
+		//connect(document(), SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
 		return true;
 	}
 	// failed!
 	filePath_.clear();
 	return false;
+}
+
+void Editor::handleDocModified(bool) {
+//	ae_info("doc modified");
+//	setDirty(true);
+
 }
 
 QString Editor::displayName() const {
@@ -216,6 +223,7 @@ QTextCursor Editor::wordUnderCursor() const
 int Editor::lineNumberBarWidth() {
 	int digits = 1;
 	int max = qMax(1, document()->blockCount());
+	// == floor(log10(max))
 	while (max >= 10) {
 		max /= 10;
 		++digits;

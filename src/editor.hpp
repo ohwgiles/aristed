@@ -55,9 +55,10 @@ private:
 
 	friend class Highlighter;
 signals:
-	void dirtied(bool);
+	void dirtied(QWidget*,bool);
 	void updateCursorPosition(QString);
 protected slots:
+	void handleDocModified(bool);
 	virtual void handleCursorMoved();
 	void handleTextChanged(int pos, int removed, int added);
 	void updateLineNumberBarWidth(int /* newBlockCount */);

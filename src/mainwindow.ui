@@ -13,14 +13,16 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QWidget" name="centralwidget">
+   <zorder>fileView</zorder>
+  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>22</height>
+     <height>28</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -55,10 +57,38 @@
     <addaction name="separator"/>
     <addaction name="actionSelect_All"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionShow_File_Manager"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuView"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QDockWidget" name="fileTree">
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable</set>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::LeftDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>File Browser</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents">
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QTreeView" name="fileView"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
   <action name="actionNew">
    <property name="text">
     <string>New</string>
@@ -173,6 +203,14 @@
   <action name="actionSelect_All">
    <property name="text">
     <string>Select All</string>
+   </property>
+  </action>
+  <action name="actionShow_File_Manager">
+   <property name="text">
+    <string>Show File Manager</string>
+   </property>
+   <property name="shortcut">
+    <string>F9</string>
    </property>
   </action>
  </widget>

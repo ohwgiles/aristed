@@ -2,8 +2,9 @@
 #define MAINWINDOW_HPP
 
 #include <QMainWindow>
-
+class QFileSystemModel;
 class Editor;
+class QModelIndex;
 struct ColourScheme;
 class QLabel;
 namespace Ui {
@@ -40,7 +41,7 @@ private slots:
 	void on_actionNew_triggered();
 	void on_actionOpen_triggered();
 	void currentTabChanged(int index);
-	void handleDirtied(bool);
+	void handleDirtied(QWidget*, bool);
 	void on_actionExit_triggered();
 	bool on_actionSave_triggered();
 	bool on_actionSave_As_triggered();
@@ -52,10 +53,15 @@ private slots:
 
 	void on_actionClose_Others_triggered();
 
+	void on_actionShow_File_Manager_triggered();
+
+	void on_fileView_activated(const QModelIndex &index);
+
 private:
 	TabWidget* m_tabs;
 	Ui::MainWindow *ui;
 	ColourScheme* mColourScheme;
+	QFileSystemModel* dirModel_;
 	//QVector<Editor *> m_editors;
 	QLabel* cursor_position;
 };
