@@ -26,7 +26,7 @@ QVariant CxxModel::data(const QModelIndex &idx, int role) const {
 	return QVariant();
 }
 
-CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&colours) : CodeModel(),
+CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&colours, QString filename) : CodeModel(),
 	mCursor(*new CXCursor),
 	highlighter(highlighter),
 	colours(colours),
@@ -34,25 +34,34 @@ CxxModel::CxxModel(QSyntaxHighlighter &highlighter, const ColourScheme* const&co
 	cursorInfo(this, &CxxModel::findCursorInfo)
 {
 	index = clang_createIndex(0,0);
-	const char* args[6];
-	args[0] = "-x";
-	args[1] = "c++";
-	ae_info(ARCH_HEADERS);
-	args[2] = "-I" ARCH_HEADERS;
-	args[3] = "-pedantic";
-	args[4] = "-Wall";
-	args[5] = "-Wextra";
-	//const char* argv = incpath;
-	tu() = clang_parseTranslationUnit(index, "a", (const char**)&args, 6, NULL, 0, CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
+
+	setFileName(filename);
 
 	backgroundWorker = new QThread();
 	semantics.moveToThread(backgroundWorker);
 	cursorInfo.moveToThread(backgroundWorker);
 
-
 	connect(&semantics, SIGNAL(complete(char)), this, SLOT(reparseComplete(char)), Qt::QueuedConnection);
 	connect(&cursorInfo, SIGNAL(complete(char)), this, SLOT(cursorInfoFound(char)), Qt::QueuedConnection);
 	backgroundWorker->start();
+}
+
+void CxxModel::setFileName(QString name) {
+	const char* args[6];
+	args[0] = "-x";
+	args[1] = "c++";
+	args[2] = "-I" ARCH_HEADERS;
+	args[3] = "-pedantic";
+	args[4] = "-Wall";
+	args[5] = "-Wextra";
+
+	tu.lock();
+	fileName_ = name;
+	tu() = clang_parseTranslationUnit(index, name.toLocal8Bit().constData(),
+				(const char**)&args, 6, NULL, 0,
+				CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|
+				CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
+	tu.unlock();
 }
 
 CxxModel::~CxxModel() {
@@ -105,7 +114,6 @@ bool CxxModel::keyPressEvent(QPlainTextEdit *editor, QKeyEvent * event) {
 
 
 	if(event->key() == Qt::Key_Return) {
-		ae_info("indent!");
 		QString line = editor->textCursor().block().text();
 		IndentType it = getIndentType(line);
 		int lastIndent = getIndentLevel(line, it);
@@ -143,11 +151,11 @@ void CxxModel::prepareCompletions(QTextDocument* doc) {
 	// TODO sort out the whole CXUnsavedFile fiasco
 	CXUnsavedFile thisfile;
 	QByteArray b = doc->toPlainText().toUtf8();
-	thisfile.Filename = "a";
+	thisfile.Filename = fileName_.toUtf8().constData();
 	thisfile.Contents = b.constData();
 	thisfile.Length = b.size();
 	// TODO so far just the name is extracted. We need much more
-	CXCodeCompleteResults* results = clang_codeCompleteAt(tu(), "a",c.blockNumber()+1,c.positionInBlock()+1,&thisfile,1,clang_defaultCodeCompleteOptions());
+	CXCodeCompleteResults* results = clang_codeCompleteAt(tu(), thisfile.Filename,c.blockNumber()+1,c.positionInBlock()+1,&thisfile,1,clang_defaultCodeCompleteOptions());
 	completionResults.clear();
 	for(unsigned i = 0; i != results->NumResults; ++i) {
 		// for function/method completions, index 1 is the name.
@@ -181,7 +189,7 @@ void CxxModel::cursorPositionChanged(QTextDocument* doc, QTextCursor cur) {
 void CxxModel::findCursorInfo(char) {
 
 	tu.lock();
-	CXFile f = clang_getFile(tu(), "a");
+	CXFile f = clang_getFile(tu(), fileName_.toUtf8().constData());
 	CXSourceLocation loc = clang_getLocationForOffset(tu(),f,mCompletionCursor().position());
 	mCursor = clang_getCursor(tu(), loc);
 
@@ -283,7 +291,7 @@ void CxxModel::reparseDocument(char s) {
 	// now actually do the processing on the document. This is the part
 	// that actually takes up cycles
 	CXUnsavedFile thisfile;
-	thisfile.Filename = "a";
+	thisfile.Filename = fileName_.toUtf8().constData();
 	thisfile.Contents = documentCopy.constData();
 	thisfile.Length = documentCopy.size();
 	tu.lock();

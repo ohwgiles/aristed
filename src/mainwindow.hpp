@@ -34,7 +34,8 @@ private:
 	bool save(int tabindex, QString location);
 	void open(QString file);
 	bool closeEditor(int tabindex);
-
+	bool closeEditors(int except);
+	void closeEvent(QCloseEvent *);
 private slots:
 	void on_actionNew_triggered();
 	void on_actionOpen_triggered();
@@ -45,11 +46,17 @@ private slots:
 	bool on_actionSave_As_triggered();
 	void on_actionDiff_to_Saved_triggered();
 
+	void on_actionRevert_to_Saved_triggered();
+
+	void on_actionClose_triggered();
+
+	void on_actionClose_Others_triggered();
+
 private:
 	TabWidget* m_tabs;
 	Ui::MainWindow *ui;
 	ColourScheme* mColourScheme;
-	QVector<Editor *> m_editors;
+	//QVector<Editor *> m_editors;
 	QLabel* cursor_position;
 };
 

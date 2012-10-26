@@ -35,12 +35,17 @@ MainWindow::MainWindow(QWidget *parent) :
 
 void MainWindow::currentTabChanged(int index) {
 	ae_info("Changed tab to " << index);
-	Editor& e = *m_editors[index];
+	if(index < 0) return;
+	//Editor& e = *m_editors[index];
+	Editor* e = (Editor*) m_tabs->widget(index);
+
 	//disconnect(this, SLOT(handleDirtied(bool)));
 
-	setWindowTitle(e.displayName() + " - aristed");
-	ui->actionDiff_to_Saved->setEnabled(e.hasFileName() && e.dirty());
-	ui->actionSave->setEnabled(e.dirty());
+	setWindowTitle(e->displayName() + " - aristed");
+	m_tabs->setTabText(index, e->displayName());
+	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
+	ui->actionDiff_to_Saved->setEnabled(e->fileExists() && e->dirty());
+	ui->actionSave->setEnabled(e->dirty());
 }
 
 MainWindow::~MainWindow() {
@@ -123,13 +128,14 @@ void MainWindow::insertRubbish(Editor *e) {
 }
 
 void MainWindow::appendEditor(Editor* e) {
-	m_editors.push_back(e);
+//	m_editors.push_back(e);
 	m_tabs->addTab(e, e->displayName());
 	m_tabs->setCurrentWidget(e);
 }
 
 bool MainWindow::closeEditor(int tabindex) {
-	Editor *e = m_editors[tabindex];
+//	Editor *e = m_editors[tabindex];
+	Editor *e = (Editor*) m_tabs->widget(tabindex);
 
 	QMessageBox confirm;
 	confirm.setIcon(QMessageBox::Question);
@@ -138,12 +144,13 @@ bool MainWindow::closeEditor(int tabindex) {
 	confirm.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
 	QAbstractButton* diffButton = confirm.addButton("Show diff...", QMessageBox::ActionRole);
 
+	int result = confirm.exec();
 	while(confirm.clickedButton() == diffButton) {
 		on_actionDiff_to_Saved_triggered();
-		confirm.exec();
+		result = confirm.exec();
 	}
 
-	switch(confirm.exec()) {
+	switch(result) {
 	case QMessageBox::Save:
 		if(!on_actionSave_triggered()) return false;
 		break;
@@ -155,15 +162,65 @@ bool MainWindow::closeEditor(int tabindex) {
 		ae_assert(false && "branch can't happen");
 	}
 
-	delete m_editors[tabindex];
-	m_editors.erase(m_editors.begin() + tabindex);
+//	delete m_editors[tabindex];
+//	m_editors.erase(m_editors.begin() + tabindex);
+//	m_tabs->removeTab(tabindex);
+	delete m_tabs->widget(tabindex);
 	m_tabs->removeTab(tabindex);
 	return true;
 }
 
+bool MainWindow::closeEditors(int except) {
+	int result = -1;
+	for(int i=m_tabs->count() - 1; i>=0; --i) {
+		//Editor* e = m_editors[i];
+		Editor *e = (Editor*) m_tabs->widget(i);
+		if(i == except)
+			continue;
+		if(e->dirty()) {
+			switch(result) {
+			case QMessageBox::YesToAll:
+				if(!on_actionSave_triggered()) return false;
+				break;
+			case QMessageBox::NoToAll:
+				break;
+			default: {
+				QMessageBox confirm;
+				confirm.setIcon(QMessageBox::Question);
+				confirm.setText("The document `" + e->displayName() + "' has been modified");
+				confirm.setInformativeText("Do you want to save your changes?");
+				confirm.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::YesToAll | QMessageBox::NoToAll | QMessageBox::Cancel);
+				QAbstractButton* diffButton = confirm.addButton("Show diff...", QMessageBox::ActionRole);
+				QAbstractButton* skipButton = confirm.addButton("Skip", QMessageBox::RejectRole);
+
+				result = confirm.exec();
+				while(confirm.clickedButton() == diffButton) {
+					on_actionDiff_to_Saved_triggered();
+					result = confirm.exec();
+				}
+				if(confirm.clickedButton() == skipButton) {
+					continue;
+				} else if(result == QMessageBox::Save || result == QMessageBox::YesToAll) {
+					if(!on_actionSave_triggered()) return false;
+				} else if(result == QMessageBox::Cancel)
+					return false;
+			}
+			break;
+			}
+		}
+//		delete m_editors[i];
+//		m_editors.erase(m_editors.begin() + i);
+		delete m_tabs->widget(i);
+		m_tabs->removeTab(i);
+	}
+	return m_tabs->count()==0;
+}
+
 void MainWindow::handleDirtied(bool dirty) {
-	const Editor& e = *m_editors[m_tabs->currentIndex()];
-	ui->actionDiff_to_Saved->setEnabled(dirty && e.hasFileName());
+	//const Editor& e = *m_editors[m_tabs->currentIndex()];
+	const Editor* e = (Editor*) m_tabs->currentWidget();
+	ui->actionDiff_to_Saved->setEnabled(dirty && e->fileExists());
+	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionSave->setEnabled(dirty);
 	ae_info("Setting on index " << m_tabs->currentIndex());
 	m_tabs->tabBar()->setTabTextColor(m_tabs->currentIndex(), dirty? Qt::red : Qt::black);
@@ -186,12 +243,20 @@ void MainWindow::on_actionOpen_triggered() {
 	}
 }
 
+void MainWindow::closeEvent(QCloseEvent * e) {
+	if(closeEditors(-1))
+		e->accept();
+	else
+		e->ignore();
+}
+
 void MainWindow::on_actionExit_triggered() {
 	close();
 }
 
 bool MainWindow::save(int tabindex) {
-	Editor *e = m_editors[tabindex];
+	//Editor *e = m_editors[tabindex];
+	Editor* e = (Editor*) m_tabs->widget(tabindex);
 	if(!e->saveFile()) {
 		QMessageBox::warning(this, "Error", "Could not save " + e->displayName());
 		return false;
@@ -204,7 +269,8 @@ bool MainWindow::save(int tabindex) {
 }
 
 bool MainWindow::save(int tabindex, QString location) {
-	Editor *e = m_editors[tabindex];
+	//Editor *e = m_editors[tabindex];
+	Editor* e = (Editor*) m_tabs->widget(tabindex);
 	if(!e->saveFile(location)) {
 		QMessageBox::warning(this, "Error", "Could not save to " + location);
 		return false;
@@ -216,8 +282,9 @@ bool MainWindow::save(int tabindex, QString location) {
 }
 
 bool MainWindow::on_actionSave_triggered() {
-	Editor& e = *m_editors[m_tabs->currentIndex()];
-	if(e.hasFileName())
+	//Editor& e = *m_editors[m_tabs->currentIndex()];
+	Editor* e = (Editor*) m_tabs->currentWidget();
+	if(e->fileExists())
 		return save(m_tabs->currentIndex());
 	else
 		return on_actionSave_As_triggered();
@@ -233,7 +300,8 @@ bool MainWindow::on_actionSave_As_triggered() {
 
 void MainWindow::on_actionDiff_to_Saved_triggered()
 {
-	Editor* e = m_editors[m_tabs->currentIndex()];
+	//Editor* e = m_editors[m_tabs->currentIndex()];
+	Editor* e = (Editor*) m_tabs->currentWidget();
 	QTemporaryFile tmpfile(QDir::tempPath() + "/aristed.tmp." + e->displayName() + ".XXXXXX");
 	if(!tmpfile.open()) {
 		QMessageBox::warning(this, "Error", "Could not open " + tmpfile.fileName() + " for writing");
@@ -245,7 +313,32 @@ void MainWindow::on_actionDiff_to_Saved_triggered()
 		return;
 	}
 	QStringList args;
-	args << e->fileName() << tmpfile.fileName();
+	args << e->filePath() << tmpfile.fileName();
 	if(int status = QProcess::execute("meld", args) != 0)
 		QMessageBox::warning(this, "Error", "QProcess::execute returned " + QString::number(status));
+}
+
+void MainWindow::on_actionRevert_to_Saved_triggered() {
+	//Editor* e = m_editors[m_tabs->currentIndex()];
+	Editor* e = (Editor*) m_tabs->currentWidget();
+	// should not be possible to trigger this action if there is no file
+	ae_assert(e->fileExists());
+
+	QMessageBox confirm;
+	confirm.setIcon(QMessageBox::Question);
+	confirm.setText("Your changes to `" + e->displayName() + "' will be lost");
+	confirm.setInformativeText("Are you sure you wish to proceed?");
+	confirm.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+
+	if(confirm.exec() == QMessageBox::Yes)
+		e->openFile(e->filePath());
+}
+
+void MainWindow::on_actionClose_triggered() {
+	closeEditor(m_tabs->currentIndex());
+}
+
+void MainWindow::on_actionClose_Others_triggered()
+{
+	closeEditors(m_tabs->currentIndex());
 }

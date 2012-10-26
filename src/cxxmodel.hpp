@@ -36,7 +36,7 @@ struct ColourScheme;
 class CxxModel : public CodeModel {
 	Q_OBJECT
 public:
-	CxxModel(QSyntaxHighlighter& highlighter, const ColourScheme* const& colours);
+	CxxModel(QSyntaxHighlighter& highlighter, const ColourScheme* const& colours, QString filename);
 	~CxxModel();
 	int rowCount(const QModelIndex &) const;
 	QVariant data(const QModelIndex &, int ) const;
@@ -51,6 +51,8 @@ virtual QString completionPrefix() const { return mCompletionPrefix; }
 	Lockable<QTextCursor> mCompletionCursor;
 	Lockable<CXTranslationUnit> tu;
 	CXCursor mCursor;
+	void setFileName(QString name);
+	QString fileName_;
 	void handleCursorMoved();
 	void lexicalHighlight();
 	void semanticHighlight();

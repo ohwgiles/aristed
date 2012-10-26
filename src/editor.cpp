@@ -14,9 +14,9 @@
 #include "highlighter.hpp"
 Editor::Editor(QWidget *parent) :
 	QPlainTextEdit(parent),
+	fileExists_(false),
 	mLineNumberBar(new LineNumberBar(this)),
 	mDirty(false),
-	mHasFileName(false),
 	model(0),
 	hlighter(this)
 {
@@ -24,14 +24,13 @@ Editor::Editor(QWidget *parent) :
 	connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberBar(QRect,int)));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(handleCursorMoved()));
-	connect(this, SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
 	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
 
 	setMouseTracking(true);
 
 	QTextOption opts;
 	opts.setFlags(QTextOption::ShowTabsAndSpaces);
-	setFont(QFont("Deja Vu Sans Mono", 12));
+	setFont(QFont("Deja Vu Sans Mono", 9));
 	setTabChangesFocus(false);
 	setUndoRedoEnabled(true);
 	setLineWrapMode(WidgetWidth);
@@ -57,7 +56,7 @@ const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->ge
 
 void Editor::setCxxModel() {
 	delete model;
-	model = new CxxModel(hlighter, mColourScheme);
+	model = new CxxModel(hlighter, mColourScheme, fileExists_ ? filePath_ : "untitled");
 	this->model = model;
 	mCompleter->setModel(this->model);
 }
@@ -80,6 +79,9 @@ void Editor::setColourScheme(ColourScheme* scheme) {
 
 }
 void Editor::handleTextChanged(int pos, int removed, int added) {
+	ae_info("doc modified");
+	setDirty(true);
+
 	if(model)
 	model->handleTextChanged(document(), pos, removed, added);
 }
@@ -114,6 +116,7 @@ void Editor::handleCursorMoved() {
 }
 
 void Editor::setDirty(bool b) {
+	// only emit the signal if status changed
 	if(mDirty != b) {
 		mDirty = b;
 		emit dirtied(b);
@@ -154,28 +157,27 @@ bool Editor::event(QEvent *e) {
 	return QPlainTextEdit::event(e);
 }
 
-void Editor::handleDocModified(bool) {
-	setDirty(true);
-}
-
 bool Editor::openFile(QString fileName) {
 	QFile f(fileName);
 	if(f.open(QFile::ReadOnly)) {
 		disconnect(SIGNAL(modificationChanged(bool)));
+		clear();
 		insertPlainText(QString(f.readAll()));
-		mFileName = fileName;
+		filePath_ = fileName;
+		fileExists_ = true;
 		setDirty(false);
 		connect(this, SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
-		mHasFileName = true;
 		return true;
 	}
+	// failed!
+	filePath_.clear();
 	return false;
 }
 
 QString Editor::displayName() const {
-	if(!mHasFileName)
+	if(filePath_.isEmpty())
 		return "<Untitled>";
-	QFileInfo fi(mFileName);
+	QFileInfo fi(filePath_);
 	return fi.fileName();
 }
 
@@ -188,8 +190,8 @@ bool Editor::saveFile(QString fileName) {
 	if(f.write(data) != data.size())
 		return false;
 
-	mFileName = fileName;
-	mHasFileName = true;
+	filePath_ = fileName;
+	fileExists_ = true;
 	setDirty(false);
 	return true;
 }

@@ -19,6 +19,8 @@ public:
 	virtual bool keyPressEvent(QPlainTextEdit*,QKeyEvent*) { return false; }
 	virtual QString getTipAt(int , int ) { return ""; }
 
+	virtual void setFileName(QString) {}
+
 	enum IndentType { INDENT_TAB, INDENT_SPACE };
 	IndentType getIndentType(QString line) const;
 	int getIndentLevel(QString line, IndentType type) const;

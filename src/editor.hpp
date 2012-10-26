@@ -2,15 +2,16 @@
 #define EDITOR_HPP
 
 #include <QPlainTextEdit>
-
 #include "highlighter.hpp"
+
 class CodeModel;
 struct ColourScheme;
 class LineNumberBar;
 class TextStyle;
 class QCompleter;
+
 class Editor : public QPlainTextEdit {
-    Q_OBJECT
+	Q_OBJECT
 public:
 	explicit Editor(QWidget *parent = 0);
 	~Editor();
@@ -18,13 +19,14 @@ public:
 
 	QTextCursor wordUnderCursor() const;
 	QString displayName() const;
-	QString fileName() const { return mFileName; }
+	QString filePath() const { return filePath_; }
 
-    bool dirty() const { return mDirty;}
-	bool hasFileName() const { return mHasFileName; }
+	bool dirty() const { return mDirty;}
+
+	bool fileExists() const { return fileExists_; }
 
 	bool openFile(QString filename);
-	bool saveFile() { return saveFile(mFileName); }
+	bool saveFile() { return saveFile(filePath_); }
 	bool saveFile(QString filename);
 
 	void setCxxModel();
@@ -40,29 +42,28 @@ protected:
 	virtual bool event(QEvent *e);
 
 private:
-    void resizeEvent(QResizeEvent *e);
+	bool fileExists_;
+	void resizeEvent(QResizeEvent *e);
 	QWidget* mLineNumberBar;
-    QString mFileName;
+	QString filePath_;
 	void setDirty(bool b);
-    bool mDirty;
-	bool mHasFileName;
-CodeModel* model;
-QCompleter* mCompleter;
+	bool mDirty;
+	CodeModel* model;
+	QCompleter* mCompleter;
 
-Highlighter hlighter;
+	Highlighter hlighter;
 
 	friend class Highlighter;
 signals:
 	void dirtied(bool);
 	void updateCursorPosition(QString);
 protected slots:
-	 virtual void handleCursorMoved();
-	void handleDocModified(bool);
-void handleTextChanged(int pos, int removed, int added);
-    void updateLineNumberBarWidth(int /* newBlockCount */);
-    void updateLineNumberBar(const QRect &rect, int dy);
-    void highlightCurrentLine();
-	 void completionChosen(QString);
+	virtual void handleCursorMoved();
+	void handleTextChanged(int pos, int removed, int added);
+	void updateLineNumberBarWidth(int /* newBlockCount */);
+	void updateLineNumberBar(const QRect &rect, int dy);
+	void highlightCurrentLine();
+	void completionChosen(QString);
 
 private:
 	friend class LineNumberBar;
