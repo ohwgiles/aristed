@@ -165,6 +165,7 @@ bool Editor::openFile(QString fileName) {
 		clear();
 		insertPlainText(QString(f.readAll()));
 		filePath_ = fileName;
+		model->setFileName(fileName);
 		fileExists_ = true;
 		setDirty(false);
 		//connect(document(), SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
@@ -198,6 +199,7 @@ bool Editor::saveFile(QString fileName) {
 		return false;
 
 	filePath_ = fileName;
+	model->setFileName(fileName);
 	fileExists_ = true;
 	setDirty(false);
 	return true;

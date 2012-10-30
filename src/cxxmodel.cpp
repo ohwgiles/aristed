@@ -9,7 +9,8 @@
 #include <QCompleter>
 #include <clang-c/Index.h>
 #include <QThread>
-
+#include <QFileInfo>
+#include <QDir>
 int CxxModel::rowCount(const QModelIndex &) const {
 	return completionResults.size();
 }
@@ -48,21 +49,28 @@ CxxModel::CxxModel(Highlighter &highlighter, const ColourScheme* const&colours, 
 }
 
 void CxxModel::setFileName(QString name) {
-	const char* args[6];
+	const char* args[7];
+	QFileInfo fi(name);
+
 	args[0] = "-x";
 	args[1] = "c++";
 	args[2] = "-I" ARCH_HEADERS;
 	args[3] = "-pedantic";
 	args[4] = "-Wall";
 	args[5] = "-Wextra";
+	args[6] = strdup(QString(QString("-I")+fi.dir().path()).toUtf8().constData());
+	ae_info(name);
+	ae_info(args[6]);
 
 	tu.lock();
 	fileName_ = name;
 	tu() = clang_parseTranslationUnit(index, name.toLocal8Bit().constData(),
-				(const char**)&args, 6, NULL, 0,
+				(const char**)&args, 7, NULL, 0,
 				CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|
 				CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 	tu.unlock();
+
+	free((void*)args[6]);
 }
 
 CxxModel::~CxxModel() {
