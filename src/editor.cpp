@@ -52,7 +52,7 @@ Editor::~Editor() {
 	model = 0;
 }
 
-const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->getStyle(blockNumber, index); }
+//const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->getStyle(blockNumber, index); }
 
 void Editor::setCxxModel() {
 	delete model;

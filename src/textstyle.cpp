@@ -1,31 +1,19 @@
 #include "textstyle.hpp"
 
-TextStyle::TextStyle(int s, int l) :
-	start(s), len(l)
-{}
 
-HighlightStyle::HighlightStyle(QColor c, Style d, int s, int l) :
-	TextStyle(s, l),
-	m_colour(c), m_style(d)
-{}
-
-QTextCharFormat HighlightStyle::toTcf() const {
-	QTextCharFormat f;
-	f.setForeground(m_colour);
-	f.setFontItalic(m_style & ITALIC);
-	f.setFontWeight((m_style & BOLD) ? QFont::Bold : QFont::Normal);
-	return f;
+CodeDecoration::CodeDecoration(QColor colour, Emphasis emphasis, int start, int length) {
+	textCharFormat_.setForeground(colour);
+	textCharFormat_.setFontItalic(emphasis & ITALIC);
+	textCharFormat_.setFontWeight((emphasis & BOLD) ? QFont::Bold : QFont::Normal);
+	extents_.start = start;
+	extents_.length = length;
 }
 
-DiagStyle::DiagStyle(QString message, QColor underline, int s, int l) :
-	TextStyle(s, l),
-	m_underline(underline),
-	m_message(message)
-{}
+CodeDecoration::CodeDecoration(QString message, QColor underline, int start, int length) {
+	annotation_ = message;
+	textCharFormat_.setUnderlineColor(underline);
+	textCharFormat_.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+	extents_.start = start;
+	extents_.length = length;
 
-QTextCharFormat DiagStyle::toTcf() const {
-	QTextCharFormat f;
-	f.setUnderlineColor(m_underline);
-	f.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
-	return f;
 }

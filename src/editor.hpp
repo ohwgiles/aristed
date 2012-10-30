@@ -38,7 +38,7 @@ public:
 protected:
 	const ColourScheme* mColourScheme;
 	virtual void keyPressEvent(QKeyEvent *e);
-	virtual const TextStyle* getStyle(int blockNumber, int index);
+	//virtual const TextStyle* getStyle(int blockNumber, int index);
 	virtual bool event(QEvent *e);
 
 private:

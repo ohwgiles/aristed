@@ -4,46 +4,30 @@
 #include <QColor>
 #include <QTextCharFormat>
 
-class TextStyle {
+class CodeDecoration {
 public:
-	TextStyle() {}
-	TextStyle(int s, int l);
-
-	virtual QTextCharFormat toTcf() const = 0;
-
-	int start;
-	int len;
-};
-
-class HighlightStyle : public TextStyle {
-public:
-	enum Style { PLAIN = 0, BOLD=1, ITALIC=2 };
-
-	HighlightStyle() {}
-	HighlightStyle(QColor c, Style d, int s, int l);
-
-	virtual QTextCharFormat toTcf() const;
+	struct Extents {
+		int start;
+		int length;
+	};
+	enum Emphasis { PLAIN = 0, BOLD=1, ITALIC=2 };
+	CodeDecoration() {}
+	CodeDecoration(QColor colour, Emphasis emphasis, int start, int length);
+	CodeDecoration(QString message, QColor underline, int start, int length);
+	void move(Extents newExtents) { extents_ = newExtents; }
+	Extents extents() const { return extents_; }
+	const QTextCharFormat& textCharFormat() const { return textCharFormat_; }
 
 private:
-	QColor m_colour;
-	Style m_style;
+	QTextCharFormat textCharFormat_;
+	Extents extents_;
+	QString annotation_;
 };
 
-class DiagStyle : public TextStyle {
-public:
-	DiagStyle() {}
-	DiagStyle(QString message, QColor underline, int s, int l);
-
-	virtual QTextCharFormat toTcf() const;
-// todo private
-public:
-	QColor m_underline;
-	QString m_message;
-};
 
 #include <QVector>
-typedef QVector<HighlightStyle> HighlightStyleVector;
-typedef QVector<DiagStyle> DiagStyleVector;
-
+typedef QVector<CodeDecoration> StyleVector;
+#include <QMap>
+typedef QMap<int,StyleVector> StyleMap;
 
 #endif // TEXTSTYLE_HPP

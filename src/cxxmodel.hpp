@@ -16,6 +16,7 @@ class QCompleter;
 
 class CxxModel;
 class Editor;
+class Highlighter;
 class CxxBackground : public QObject {
 	Q_OBJECT
 public:
@@ -36,7 +37,7 @@ struct ColourScheme;
 class CxxModel : public CodeModel {
 	Q_OBJECT
 public:
-	CxxModel(QSyntaxHighlighter& highlighter, const ColourScheme* const& colours, QString filename);
+	CxxModel(Highlighter &highlighter, const ColourScheme* const& colours, QString filename);
 	~CxxModel();
 	int rowCount(const QModelIndex &) const;
 	QVariant data(const QModelIndex &, int ) const;
@@ -59,17 +60,28 @@ virtual QString completionPrefix() const { return mCompletionPrefix; }
 	QString mCompletionPrefix;
 	void prepareCompletions(QTextDocument *doc);
 	void cursorPositionChanged(QTextDocument* doc, QTextCursor cur);
-	const TextStyle* getStyle(int blockNumber, int index);
+	//const TextStyle* getStyle(int blockNumber, int index);
 	void reparseDocument(char s);
 	void findCursorInfo(char s);
 	char threadSentinel;
-	QSyntaxHighlighter& highlighter;
+	Highlighter& highlighter;
 	const ColourScheme * const& colours;
 	Lockable<QByteArray> lastDocument;
+	QMutex mutex;
+	/*
 	typedef QMap<int, HighlightStyleVector> HighlightStyleMap;
 	typedef QMap<int, DiagStyleVector> DiagnosticStyleMap;
 	Lockable<HighlightStyleMap> blockHighlightStyles;
-	Lockable<DiagnosticStyleMap> blockDiagnosticStyles;
+	Lockable<DiagnosticStyleMap> blockDiagnosticStyles;*/
+	StyleMap* newStyles_;
+
+	struct Annotation {
+		int start;
+		int length;
+		QString message;
+	};
+	Lockable< QMap<int, QVector<Annotation> > > codeAnnotations;
+
 Editor* e;
 CxxBackground semantics;
 CxxBackground cursorInfo;

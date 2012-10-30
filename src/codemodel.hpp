@@ -11,7 +11,7 @@ class CodeModel : public QAbstractListModel
 public:
 	CodeModel(QObject* parent = 0);
 	virtual ~CodeModel();
-	virtual const TextStyle* getStyle(int blockNumber, int index) = 0;
+//	virtual const TextStyle* getStyle(int blockNumber, int index) = 0;
 	virtual QString completionPrefix() const { return ""; }
 	virtual void handleTextChanged(QTextDocument* , int , int , int ) {}
 	virtual void prepareCompletions(QTextDocument* ) {}
