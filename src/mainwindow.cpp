@@ -244,6 +244,16 @@ void MainWindow::handleDirtied(QWidget * w, bool dirty) {
 }
 
 void MainWindow::open(QString fileName) {
+	// first check to see if the file is already open. If so, just focus it.
+	for(int i=m_tabs->count()-1; i>=0; --i) {
+		Editor* e = (Editor*) m_tabs->widget(i);
+		if(e->filePath() == fileName) {
+			m_tabs->setCurrentWidget(e);
+			e->focusWidget();
+			return;
+		}
+	}
+	// if we make it here, the file is not already open. Create a new editor.
 	Editor * e = createEditor<CxxModel>();
 	if(e->openFile(fileName)) {
 		appendEditor(e);
