@@ -33,6 +33,18 @@ public:
 
 	Highlighter& highlighter() { return hlighter; }
 
+	void setPanelMargins(int l, int t, int r, int b)
+	{
+	 //m_margins.setCoords(l, t, r, b);
+//viewport()->width()
+		setViewportMargins(l, t, r, b);
+
+//		if ( flag(LineWrap) )
+//	{
+//		//qDebug("panel adjust : wrapping to %i", viewport()->width());
+//	m_doc->setWidthConstraint(wrapWidth());
+//	}
+	}
 
 	void showCompletions();
 protected:

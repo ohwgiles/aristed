@@ -10,18 +10,20 @@
 #include <QAbstractItemView>
 #include <QFileInfo>
 #include "cxxmodel.hpp"
+#include "qpanellayout.h"
+#include "qlinenumberpanel.h"
 #include <QToolTip>
 #include "highlighter.hpp"
 Editor::Editor(QWidget *parent) :
 	QPlainTextEdit(parent),
 	fileExists_(false),
-	mLineNumberBar(new LineNumberBar(this)),
+	//mLineNumberBar(new LineNumberBar(this)),
 	mDirty(false),
 	model(0),
 	hlighter(this)
 {
-	connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberBarWidth(int)));
-	connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberBar(QRect,int)));
+//	connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberBarWidth(int)));
+//	connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberBar(QRect,int)));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(handleCursorMoved()));
 	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
@@ -43,7 +45,12 @@ Editor::Editor(QWidget *parent) :
 	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
 	mCompleter->setWidget(this);
 	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
+	QPanelLayout* p = new QPanelLayout(this);
 
+	QLineNumberPanel* lnp = new QLineNumberPanel();
+	lnp->attach(this);
+	p->addWidget(lnp, QPanelLayout::West);
+	//this->setLayout(p);
 
 }
 
@@ -234,7 +241,7 @@ int Editor::lineNumberBarWidth() {
 }
 
 void Editor::updateLineNumberBarWidth(int /* newBlockCount */) {
-	setViewportMargins(lineNumberBarWidth(), 0, 0, 0);
+//	setViewportMargins(lineNumberBarWidth(), 0, 0, 0);
 }
 
 void Editor::updateLineNumberBar(const QRect &rect, int dy) {
@@ -248,8 +255,8 @@ void Editor::updateLineNumberBar(const QRect &rect, int dy) {
 
 void Editor::resizeEvent(QResizeEvent *e) {
 	QPlainTextEdit::resizeEvent(e);
-	QRect cr = contentsRect();
-	mLineNumberBar->setGeometry(QRect(cr.left(), cr.top(), lineNumberBarWidth(), cr.height()));
+//	QRect cr = contentsRect();
+//	mLineNumberBar->setGeometry(QRect(cr.left(), cr.top(), lineNumberBarWidth(), cr.height()));
 }
 
 void Editor::highlightCurrentLine() {

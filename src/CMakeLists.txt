@@ -42,6 +42,9 @@ add_executable(ae
  linenumberbar.hpp
  highlighter.cpp
  log.cpp
+qlinenumberpanel.cpp
+qpanel.cpp
+qpanellayout.cpp
  ${UI_MOCS}
  ${UI_OUTPUT}
 )
