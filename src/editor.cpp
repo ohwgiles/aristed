@@ -10,7 +10,7 @@
 #include <QAbstractItemView>
 #include <QFileInfo>
 #include "cxxmodel.hpp"
-#include "qpanellayout.h"
+#include "editorlayout.hpp"
 #include "qlinenumberpanel.h"
 #include <QToolTip>
 #include "highlighter.hpp"
@@ -45,11 +45,11 @@ Editor::Editor(QWidget *parent) :
 	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
 	mCompleter->setWidget(this);
 	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
-	QPanelLayout* p = new QPanelLayout(this);
+	EditorLayout* p = new EditorLayout(this);
 
-	QLineNumberPanel* lnp = new QLineNumberPanel();
-	lnp->attach(this);
-	p->addWidget(lnp, QPanelLayout::West);
+	LineNumberPanel* lnp = new LineNumberPanel(this);
+	//lnp->attach(this);
+	p->addWidget(lnp);
 	//this->setLayout(p);
 
 }

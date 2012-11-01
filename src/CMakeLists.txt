@@ -44,7 +44,7 @@ add_executable(ae
  log.cpp
 qlinenumberpanel.cpp
 qpanel.cpp
-qpanellayout.cpp
+editorlayout.cpp
  ${UI_MOCS}
  ${UI_OUTPUT}
 )
