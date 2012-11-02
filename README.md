@@ -38,12 +38,11 @@ dependencies
 
 compilation
 -----------
-git clone https://github.com/ohwgiles/aristed.git aristed
-mkdir aristed/build
-cd aristed/build
-cmake ../
-make
-
+    git clone https://github.com/ohwgiles/aristed.git aristed
+    mkdir aristed/build
+    cd aristed/build
+    cmake ../
+    make
 
 design
 ======
