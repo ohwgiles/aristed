@@ -9,7 +9,13 @@ SearchPanel::SearchPanel(Editor *editor) :
 	//setFixedHeight(40);
 
 	QVBoxLayout* vbl = new QVBoxLayout();
-	vbl->addWidget(new QLineEdit());
+	QLineEdit* le = new QLineEdit();
+	vbl->addWidget(le);
 	this->setLayout(vbl);
 
+	connect(le, SIGNAL(textChanged(QString)), editor, SLOT(searchString(QString)));
+}
+void SearchPanel::keyPressEvent(QKeyEvent *e) {
+
+	e->accept();
 }

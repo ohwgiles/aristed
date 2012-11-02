@@ -10,7 +10,6 @@
 #include <QAbstractItemView>
 #include <QFileInfo>
 #include "cxxmodel.hpp"
-#include "editorlayout.hpp"
 #include "linenumberpanel.hpp"
 #include <QToolTip>
 #include "highlighter.hpp"
@@ -55,6 +54,24 @@ Editor::Editor(QWidget *parent) :
 	//this->setLayout(p);
 	searchPanel_ = new SearchPanel(this);
 
+
+}
+
+void Editor::searchString(QString str) {
+	ae_info(str << " : " << find(str));
+	QRegExp regexp(str);
+	QList<QTextEdit::ExtraSelection> extraSelections;
+	moveCursor(QTextCursor::Start);
+	QTextCursor cur(document()->docHandle(), 0);
+	while(!(cur = document()->find(regexp, cur)).isNull())
+	{
+		 QTextEdit::ExtraSelection extra;
+		 extra.cursor = cur;
+		 extra.format.setBackground(QBrush(Qt::red));
+		 extraSelections.append(extra);
+	}
+
+	setExtraSelections(extraSelections);
 }
 
 Editor::~Editor() {
@@ -136,6 +153,9 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 	// allow the model to supply some key events
 	if(model->keyPressEvent(this, e))
 		return;
+
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash)
+		ae_info("ctrl-/");
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
 		showCompletions();

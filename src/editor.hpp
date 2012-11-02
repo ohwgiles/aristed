@@ -79,6 +79,7 @@ protected slots:
 	void updateLineNumberBar(const QRect &rect, int dy);
 	void highlightCurrentLine();
 	void completionChosen(QString);
+	void searchString(QString);
 
 private:
 	friend class LineNumberBar;

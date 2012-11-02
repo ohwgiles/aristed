@@ -10,6 +10,8 @@ class SearchPanel : public QWidget
 public:
 	explicit SearchPanel(Editor *editor);
 	
+protected:
+	void keyPressEvent(QKeyEvent *);
 signals:
 	
 public slots:
