@@ -6,7 +6,8 @@
 
 class CodeModel;
 struct ColourScheme;
-class LineNumberBar;
+class LineNumberPanel;
+class SearchPanel;
 class TextStyle;
 class QCompleter;
 
@@ -53,7 +54,8 @@ protected:
 	//virtual const TextStyle* getStyle(int blockNumber, int index);
 	virtual bool event(QEvent *e);
 
-private:
+private:LineNumberPanel* lnp;
+	SearchPanel* searchPanel_;
 	bool fileExists_;
 	void resizeEvent(QResizeEvent *e);
 	QWidget* mLineNumberBar;

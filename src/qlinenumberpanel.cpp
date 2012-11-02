@@ -11,7 +11,18 @@ LineNumberPanel::LineNumberPanel(Editor *e) : Panel(e) {
 	connect(e->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(update()));
 }
 
-void LineNumberPanel::paintEvent(QPaintEvent* event) {
+//QSize LineNumberPanel::sizeHint() const {
+//	QSize s = size();
+//	s.setHeight(editor_->sizeHint().height());
+//	return s;
+//}
+//QSize LineNumberPanel::minimumSize() const {
+//	return QSize(width(),editor_->height());
+//}
+
+
+void LineNumberPanel::paintEvent(QPaintEvent* ) {
+	//QWidget::paintEvent(event);
 	QPainter painter(this);
 	const QFontMetrics fontMetrics = editor_->fontMetrics();
 	
@@ -28,7 +39,7 @@ void LineNumberPanel::paintEvent(QPaintEvent* event) {
 	
 	QTextBlock block = document->findBlockByLineNumber(lineNumber);
 	QString txt;
-	while(block.isValid() && (y - lineSpacing) < pageBottom) {
+	while(block.isValid()){// && (y - lineSpacing) < pageBottom) {
 		txt = QString::number(lineNumber + 1);
 		if(lineNumber == currentLine) {
 			painter.save();
@@ -57,6 +68,5 @@ void LineNumberPanel::paintEvent(QPaintEvent* event) {
 	painter.drawLine(width()-1, 0, width()-1, pageBottom);
 	
 	setFixedWidth(fontMetrics.width(txt) + 5);
-	QWidget::paintEvent(event);
 }
 

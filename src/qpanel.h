@@ -17,7 +17,7 @@ class  Panel : public QWidget {
 			South,
 			East
 		};
-		Position anchor() const { return West; }
+		virtual Position anchor() const { return West; }
 		
 
 protected:

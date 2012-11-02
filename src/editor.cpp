@@ -14,6 +14,7 @@
 #include "qlinenumberpanel.h"
 #include <QToolTip>
 #include "highlighter.hpp"
+#include "searchpanel.hpp"
 Editor::Editor(QWidget *parent) :
 	QPlainTextEdit(parent),
 	fileExists_(false),
@@ -45,12 +46,14 @@ Editor::Editor(QWidget *parent) :
 	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
 	mCompleter->setWidget(this);
 	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
-	EditorLayout* p = new EditorLayout(this);
+	//EditorLayout* p = new EditorLayout(this);
 
-	LineNumberPanel* lnp = new LineNumberPanel(this);
+	lnp = new LineNumberPanel(this);
+	//(void) lnp;
 	//lnp->attach(this);
-	p->addWidget(lnp);
+	//p->addWidget(lnp);
 	//this->setLayout(p);
+	searchPanel_ = new SearchPanel(this);
 
 }
 
@@ -255,6 +258,11 @@ void Editor::updateLineNumberBar(const QRect &rect, int dy) {
 
 void Editor::resizeEvent(QResizeEvent *e) {
 	QPlainTextEdit::resizeEvent(e);
+		QRect cr = contentsRect();
+	setViewportMargins(lnp->width(),0,0,searchPanel_->sizeHint().height());
+	lnp->setGeometry(0,0,lnp->width(), cr.height());
+	searchPanel_->setGeometry(0,cr.height()-searchPanel_->sizeHint().height(),cr.width(),searchPanel_->sizeHint().height());
+
 //	QRect cr = contentsRect();
 //	mLineNumberBar->setGeometry(QRect(cr.left(), cr.top(), lineNumberBarWidth(), cr.height()));
 }

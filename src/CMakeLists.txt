@@ -43,6 +43,7 @@ add_executable(ae
  highlighter.cpp
  log.cpp
 qlinenumberpanel.cpp
+searchpanel.cpp
 qpanel.cpp
 editorlayout.cpp
  ${UI_MOCS}

@@ -10,6 +10,9 @@ public:
 	virtual ~LineNumberPanel() {}
 protected:
 	virtual void paintEvent(QPaintEvent *);
+//	virtual QSize sizeHint() const;
+//	virtual QSize minimumSize() const;
+
 };
 
 #endif // LINENUMBERPANEL_HPP
