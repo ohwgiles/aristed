@@ -1,10 +1,10 @@
-#include "qlinenumberpanel.h"
+#include "linenumberpanel.hpp"
 #include <QPainter>
 #include <QScrollBar>
 #include "editor.hpp"
 #include "log.hpp"
 
-LineNumberPanel::LineNumberPanel(Editor *e) : Panel(e) {
+LineNumberPanel::LineNumberPanel(Editor *e) : QWidget(e), editor_(e) {
 	setFixedWidth(20);
 	connect(e, SIGNAL(cursorPositionChanged()), this, SLOT(update()));
 	connect(e->document(), SIGNAL(contentsChanged()), this, SLOT(update()));

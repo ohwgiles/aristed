@@ -11,7 +11,7 @@
 #include <QFileInfo>
 #include "cxxmodel.hpp"
 #include "editorlayout.hpp"
-#include "qlinenumberpanel.h"
+#include "linenumberpanel.hpp"
 #include <QToolTip>
 #include "highlighter.hpp"
 #include "searchpanel.hpp"
