@@ -57,8 +57,8 @@ all navigation bindings can also use shift, to extend the current selection
 - alt-f forward a word
 - ctl-a start of line
 - ctl-e end of line
-- ctl-f <char> will advance beyond <char> if it appears in that line
-- ctl-t <char> will advance until <char> if it appears in that line
+- ctl-f &lt;char&gt; will advance beyond &lt;char&gt; if it appears in that line
+- ctl-t &lt;char&gt; will advance until &lt;char&gt; if it appears in that line
 - f and t will go backwards with shift
 
 file navigation
