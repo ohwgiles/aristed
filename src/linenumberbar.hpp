@@ -8,7 +8,7 @@ class LineNumberBar : public QWidget
 {
 	Q_OBJECT
 public:
-	explicit LineNumberBar(Editor *editor) : QWidget(editor), editor(editor) {}
+	explicit LineNumberBar(AeEditor *editor) : QWidget(editor), editor(editor) {}
 
 	QSize sizeHint() const {
 		return QSize(editor->lineNumberBarWidth(), 0);
@@ -20,7 +20,7 @@ protected:
 	}
 
 private:
-	Editor *editor;
+	AeEditor *editor;
 };
 
 #endif // LINENUMBERBAR_HPP

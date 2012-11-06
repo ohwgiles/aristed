@@ -34,12 +34,11 @@ add_definitions(
 
 add_executable(ae
  main.cpp
- mainwindow.cpp
+ window.cpp
  codemodel.cpp
  cxxmodel.cpp
- textstyle.cpp
+ codedecoration.cpp
  editor.cpp
- linenumberbar.hpp
  highlighter.cpp
  log.cpp
  linenumberpanel.cpp

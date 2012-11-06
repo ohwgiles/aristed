@@ -1,29 +1,27 @@
-#include "editor.hpp"
-#include "linenumberbar.hpp"
-#include "colourscheme.hpp"
-#include "log.hpp"
-#include "codemodel.hpp"
 #include <QPainter>
 #include <QPaintEvent>
 #include <QTextBlock>
 #include <QCompleter>
 #include <QAbstractItemView>
 #include <QFileInfo>
+#include <QToolTip>
+
+#include "colourscheme.hpp"
+#include "log.hpp"
+#include "codemodel.hpp"
 #include "cxxmodel.hpp"
 #include "linenumberpanel.hpp"
-#include <QToolTip>
 #include "highlighter.hpp"
 #include "searchpanel.hpp"
-Editor::Editor(QWidget *parent) :
+
+#include "editor.hpp"
+
+AeEditor::AeEditor(QWidget *parent) :
 	QPlainTextEdit(parent),
+	model_(0),
 	fileExists_(false),
-	//mLineNumberBar(new LineNumberBar(this)),
-	mDirty(false),
-	model(0),
-	hlighter(this)
+	dirty_(false)
 {
-//	connect(this, SIGNAL(blockCountChanged(int)), this, SLOT(updateLineNumberBarWidth(int)));
-//	connect(this, SIGNAL(updateRequest(QRect,int)), this, SLOT(updateLineNumberBar(QRect,int)));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(highlightCurrentLine()));
 	connect(this, SIGNAL(cursorPositionChanged()), this, SLOT(handleCursorMoved()));
 	connect(document(), SIGNAL(contentsChange(int,int,int)), this, SLOT(handleTextChanged(int,int,int)));
@@ -32,53 +30,49 @@ Editor::Editor(QWidget *parent) :
 
 	QTextOption opts;
 	opts.setFlags(QTextOption::ShowTabsAndSpaces);
+	document()->setDefaultTextOption(opts);
+
 	setFont(QFont("Deja Vu Sans Mono", 9));
 	setTabChangesFocus(false);
 	setUndoRedoEnabled(true);
 	setLineWrapMode(WidgetWidth);
-	document()->setDefaultTextOption(opts);
 	setTabStopWidth(fontMetrics().width('M')*3);
-	updateLineNumberBarWidth(0);
-setFrameStyle(0);
-	mCompleter = new QCompleter(this);
-	mCompleter->setCompletionMode(QCompleter::PopupCompletion);
-	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
-	mCompleter->setWidget(this);
-	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
-	//EditorLayout* p = new EditorLayout(this);
+	setFrameStyle(0);
 
-	lineNumberPanel_ = new LineNumberPanel(this);
-	//(void) lnp;
-	//lnp->attach(this);
-	//p->addWidget(lnp);
-	//this->setLayout(p);
-	searchPanel_ = new SearchPanel(this);
+	highlighter_ = new AeHighlighter(this);
+
+	completer_ = new QCompleter(this);
+	completer_->setCompletionMode(QCompleter::PopupCompletion);
+	completer_->setCaseSensitivity(Qt::CaseInsensitive);
+	completer_->setWidget(this);
+	connect(completer_, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
+
+	lineNumberPanel_ = new AeLineNumberPanel(this);
+
+	searchPanel_ = new AeSearchPanel(this);
 	searchPanel_->hide();
-	relayout();
 
+	relayout();
 }
 
-void Editor::searchString(QString str) {
-	ae_info(str << " : " << find(str));
+void AeEditor::searchString(QString str) {
+	ae_info(str);
 	lastSearchTerm_ = QRegExp(str);
-	// unfortunately calling find() moves the cursor
-	QTextCursor originalCursor = textCursor();
-	moveCursor(QTextCursor::Start);
-	QTextCursor cur(document()->docHandle(), 0);
 	searchResults_.clear();
-	while(!(cur = document()->find(lastSearchTerm_, cur)).isNull()) {
+	QString doc = document()->toPlainText();
+	int pos = -1;
+	while((pos = doc.indexOf(lastSearchTerm_, pos+1)) != -1) {
 		QTextEdit::ExtraSelection extra;
-		extra.cursor = cur;
-		extra.format.setBackground(QBrush(mColourScheme->searchResult()));
-		//extra.format.
+		extra.cursor = QTextCursor(document()->docHandle(), pos);
+		extra.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, lastSearchTerm_.matchedLength());
+		extra.format.setBackground(QBrush(colourScheme_->searchResult()));
 		searchResults_.append(extra);
 	}
 	setExtraSelections(searchResults_);
-	//setTextCursor(originalCursor);
 }
-void Editor::moveToSearchResult(bool select) {
+
+void AeEditor::moveToSearchResult(bool select) {
 	QTextCursor cur = textCursor();
-	(void) select;
 	if(!(cur = document()->find(lastSearchTerm_, cur)).isNull()) {
 		if(!select)
 			cur.setPosition(cur.selectionStart());
@@ -87,63 +81,63 @@ void Editor::moveToSearchResult(bool select) {
 	}
 }
 
-Editor::~Editor() {
-	delete model;
-	model = 0;
+AeEditor::~AeEditor() {
+	highlighter_->setDocument(0);
+	delete highlighter_;
+	delete completer_;
+	delete model_;
+	delete searchPanel_;
+	delete lineNumberPanel_;
 }
 
-//const TextStyle* Editor::getStyle(int blockNumber, int index) { return model->getStyle(blockNumber, index); }
-
-void Editor::setCxxModel() {
-	delete model;
-	model = new CxxModel(hlighter, mColourScheme, fileExists_ ? filePath_ : "untitled");
-	this->model = model;
-	mCompleter->setModel(this->model);
+void AeEditor::setCxxModel() {
+	delete model_;
+	model_ = new AeCxxModel(*highlighter_, colourScheme_, fileExists_ ? filePath_ : "untitled");
+	this->model_ = model_;
+	completer_->setModel(this->model_);
 }
 
-void Editor::completionChosen(QString repl) {
-	mCompleter->popup()->hide();
+void AeEditor::completionChosen(QString repl) {
+	completer_->popup()->hide();
 	QTextCursor tc = textCursor();
-	tc.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, model->completionPrefix().count());
+	tc.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor, model_->completionPrefix().count());
 	tc.removeSelectedText();
 	insertPlainText(repl);
 }
 
-void Editor::setColourScheme(const ColourScheme* scheme) {
-	mColourScheme = scheme;
+void AeEditor::setColourScheme(const ColourScheme* scheme) {
+	colourScheme_ = scheme;
 	QPalette p(palette());
-	p.setColor(QPalette::Base, mColourScheme->background());
-	p.setColor(QPalette::Text, mColourScheme->foreground());
+	p.setColor(QPalette::Base, colourScheme_->background());
+	p.setColor(QPalette::Text, colourScheme_->foreground());
 	setPalette(p);
 	highlightCurrentLine();
 	lineNumberPanel_->setColourScheme(scheme);
 
 }
-void Editor::handleTextChanged(int pos, int removed, int added) {
-	ae_info("handleTextChanged");
+void AeEditor::handleTextChanged(int pos, int removed, int added) {
 	setDirty(true);
-
-	if(model)
-	model->handleTextChanged(document(), pos, removed, added);
+	if(model_)
+		model_->handleTextChanged(document(), pos, removed, added);
 }
 
-void Editor::showCompletions() {
+void AeEditor::showCompletions() {
 	// Get the model to update its idea of the world
-	model->prepareCompletions(document());
+	model_->prepareCompletions(document());
 	// Actually display the toolbox
-	mCompleter->setCompletionPrefix(model->completionPrefix());
+	completer_->setCompletionPrefix(model_->completionPrefix());
 	// Resetting the model appears to be necessary to get Qt to reproduce the
 	// results. Otherwise, when the order of the results changes, the widget
 	// will not reiterate them, and will return random results
-	mCompleter->setModel(model);
+	completer_->setModel(model_);
 	QRect cr = cursorRect();
 	QPoint p = viewport()->mapToParent(cr.topLeft());
 	// TODO how wide should it be?
-	mCompleter->complete(QRect(p.x(),p.y(), 140, cr.height()));
+	completer_->complete(QRect(p.x(),p.y(), 140, cr.height()));
 
 }
 
-void Editor::handleCursorMoved() {
+void AeEditor::handleCursorMoved() {
 	// something cleans the search results. re-set them here
 	setExtraSelections(searchResults_);
 
@@ -152,21 +146,21 @@ void Editor::handleCursorMoved() {
 	emit updateCursorPosition(loc);
 
 	// Let the model update whatever it needs
-	model->cursorPositionChanged(document(), cur);
+	model_->cursorPositionChanged(document(), cur);
 
-	if(mCompleter->popup()->isVisible())
+	if(completer_->popup()->isVisible())
 		showCompletions();
 
 }
 
-void Editor::setDirty(bool b) {
+void AeEditor::setDirty(bool b) {
 	// only emit the signal if status changed
-	if(mDirty != b) {
-		mDirty = b;
+	if(dirty_ != b) {
+		dirty_ = b;
 		emit dirtied(this, b);
 	}
 }
-void Editor::keyPressEvent(QKeyEvent *e) {
+void AeEditor::keyPressEvent(QKeyEvent *e) {
 	QTextCursor cur = textCursor();
 	QTextCursor::MoveMode moveMode = e->modifiers() & Qt::SHIFT ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor;
 
@@ -190,7 +184,7 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 	}
 
 	// allow the model to supply some key events
-	if(model->keyPressEvent(this, e))
+	if(model_->keyPressEvent(this, e))
 		return;
 
 	// movement
@@ -216,8 +210,6 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_T)
 		return (void)(navMode_ = FIND_UNTIL, lastMoveMode_ = moveMode);
 
-
-
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash) {
 		searchPanel_->show();
 		relayout();
@@ -230,21 +222,21 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 	}
 
 	// If the completion window is available, enter/tab inserts the completion
-	if(mCompleter->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
-		completionChosen(mCompleter->currentCompletion());
+	if(completer_->popup()->isVisible() && (e->key() == Qt::Key_Return || e->key() == Qt::Key_Tab)) {
+		completionChosen(completer_->currentCompletion());
 		return;
 	}
 
 	QPlainTextEdit::keyPressEvent(e);
 }
 
-bool Editor::event(QEvent *e) {
+bool AeEditor::event(QEvent *e) {
 	if (e->type() == QEvent::ToolTip) {
 		QPoint p = viewport()->mapFromGlobal(QCursor::pos());
 		QTextCursor tc = cursorForPosition(p);
 		int col = tc.columnNumber();
 		int row = tc.blockNumber();
-		QString tip = model->getTipAt(row, col);
+		QString tip = model_->getTipAt(row, col);
 		if(tip.isEmpty())
 			QToolTip::hideText();
 		else
@@ -254,18 +246,16 @@ bool Editor::event(QEvent *e) {
 	return QPlainTextEdit::event(e);
 }
 
-bool Editor::openFile(QString fileName) {
+bool AeEditor::openFile(QString fileName) {
 	QFile f(fileName);
 	if(f.open(QFile::ReadOnly)) {
-		//disconnect(SIGNAL(modificationChanged(bool)));
-		mDirty = true;
+		dirty_ = true;
 		clear();
 		insertPlainText(QString(f.readAll()));
 		filePath_ = fileName;
-		model->setFileName(fileName);
+		model_->setFileName(fileName);
 		fileExists_ = true;
 		setDirty(false);
-		//connect(document(), SIGNAL(modificationChanged(bool)), this, SLOT(handleDocModified(bool)));
 		return true;
 	}
 	// failed!
@@ -273,20 +263,14 @@ bool Editor::openFile(QString fileName) {
 	return false;
 }
 
-void Editor::handleDocModified(bool) {
-//	ae_info("doc modified");
-//	setDirty(true);
-
-}
-
-QString Editor::displayName() const {
+QString AeEditor::displayName() const {
 	if(filePath_.isEmpty())
-		return "<Untitled>";
+		return "<untitled>";
 	QFileInfo fi(filePath_);
 	return fi.fileName();
 }
 
-bool Editor::saveFile(QString fileName) {
+bool AeEditor::saveFile(QString fileName) {
 	QFile f(fileName);
 	if(!f.open(QFile::WriteOnly))
 		return false;
@@ -296,54 +280,13 @@ bool Editor::saveFile(QString fileName) {
 		return false;
 
 	filePath_ = fileName;
-	model->setFileName(fileName);
+	model_->setFileName(fileName);
 	fileExists_ = true;
 	setDirty(false);
 	return true;
 }
 
-QTextCursor Editor::wordUnderCursor() const
-{
-	static QString eow(" \r\n\t~!@#$%^&*()_+{}|:\"<>?,./;'[]\\-=");
-	//    this->getWord()
-	QTextCursor tc = textCursor();
-	QChar::Category cat;
-	QChar c;
-	do {
-		tc.movePosition(QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
-		c = tc.selectedText()[0];
-		cat = c.category();
-	} while(!tc.atStart() && cat != QChar::Punctuation_Connector && !c.isPunct() && !c.isSpace() && !c.isSymbol() && cat != QChar::NoCategory && c.isPrint());
-	if(!tc.atStart())
-		tc.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
-	return tc;
-}
-
-int Editor::lineNumberBarWidth() {
-	int digits = 1;
-	int max = qMax(1, document()->blockCount());
-	// == floor(log10(max))
-	while (max >= 10) {
-		max /= 10;
-		++digits;
-	}
-	return 8 + fontMetrics().width(QLatin1Char('9')) * digits;
-}
-
-void Editor::updateLineNumberBarWidth(int /* newBlockCount */) {
-//	setViewportMargins(lineNumberBarWidth(), 0, 0, 0);
-}
-
-void Editor::updateLineNumberBar(const QRect &rect, int dy) {
-	if (dy)
-		mLineNumberBar->scroll(0, dy);
-	else
-		mLineNumberBar->update(0, rect.y(), mLineNumberBar->width(), rect.height());
-	if (rect.contains(viewport()->rect()))
-		updateLineNumberBarWidth(0);
-}
-
-void Editor::relayout() {
+void AeEditor::relayout() {
 	QRect cr = contentsRect();
 	int searchPanelHeight = searchPanel_->isVisible() ? searchPanel_->sizeHint().height() : 0;
 	setViewportMargins(lineNumberPanel_->width(),0,0,searchPanelHeight);
@@ -352,18 +295,16 @@ void Editor::relayout() {
 
 }
 
-void Editor::resizeEvent(QResizeEvent *e) {
+void AeEditor::resizeEvent(QResizeEvent *e) {
 	QPlainTextEdit::resizeEvent(e);
-relayout();
-//	QRect cr = contentsRect();
-//	mLineNumberBar->setGeometry(QRect(cr.left(), cr.top(), lineNumberBarWidth(), cr.height()));
+	relayout();
 }
 
-void Editor::highlightCurrentLine() {
+void AeEditor::highlightCurrentLine() {
 	QList<QTextEdit::ExtraSelection> extraSelections;
 	QTextEdit::ExtraSelection selection;
 
-	selection.format.setBackground(mColourScheme->currentLineBg());
+	selection.format.setBackground(colourScheme_->currentLineBg());
 	selection.format.setProperty(QTextFormat::FullWidthSelection, true);
 	selection.cursor = textCursor();
 	selection.cursor.clearSelection();
@@ -371,30 +312,3 @@ void Editor::highlightCurrentLine() {
 
 	setExtraSelections(extraSelections);
 }
-
-void Editor::lineNumberBarPaintEvent(QPaintEvent *event) {
-	QPainter painter(mLineNumberBar);
-	painter.fillRect(event->rect(), mColourScheme->lineNumberBackground());
-
-	QTextBlock block = firstVisibleBlock();
-	int blockNumber = block.blockNumber();
-	int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
-	int bottom = top + (int) blockBoundingRect(block).height();
-	while (block.isValid() && top <= event->rect().bottom()) {
-		if (block.isVisible() && bottom >= event->rect().top()) {
-			QString number = QString::number(blockNumber + 1);
-			QFont f = font();
-			if(block == textCursor().block())
-				f.setBold(true);
-			painter.setFont(f);
-			painter.setPen(mColourScheme->foreground());
-			painter.drawText(0, top, mLineNumberBar->width()-4, fontMetrics().height(), Qt::AlignRight, number);
-		}
-
-		block = block.next();
-		top = bottom;
-		bottom = top + (int) blockBoundingRect(block).height();
-		++blockNumber;
-	}
-}
-

@@ -1,4 +1,4 @@
-#include "mainwindow.hpp"
+#include "window.hpp"
 #include "ui_mainwindow.h"
 
 #include "editor.hpp"
@@ -14,7 +14,8 @@
 #include <QProcess>
 #include <QLabel>
 #include <QFileSystemModel>
-MainWindow::MainWindow(QWidget *parent) :
+
+AeWindow::AeWindow(QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
 	mColourScheme(new colour::SolarizedDark())
@@ -45,13 +46,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	on_actionNew_triggered();
 }
 
-void MainWindow::currentTabChanged(int index) {
+void AeWindow::currentTabChanged(int index) {
 	ae_info("Changed tab to " << index);
 	if(index < 0) return;
-	//Editor& e = *m_editors[index];
-	Editor* e = (Editor*) m_tabs->widget(index);
-
-	//disconnect(this, SLOT(handleDirtied(bool)));
+	AeEditor* e = (AeEditor*) m_tabs->widget(index);
 
 	setWindowTitle(e->displayName() + " - aristed");
 	m_tabs->setTabText(index, e->displayName());
@@ -60,33 +58,30 @@ void MainWindow::currentTabChanged(int index) {
 	ui->actionSave->setEnabled(e->dirty());
 }
 
-MainWindow::~MainWindow() {
+AeWindow::~AeWindow() {
 	delete ui;
 	delete m_tabs;
 }
 
 template<typename Model>
-Editor* MainWindow::createEditor() {
-	Editor* e = new Editor(this);
+AeEditor* AeWindow::createEditor() {
+	AeEditor* e = new AeEditor(this);
 	e->setCxxModel();
 	e->setColourScheme(mColourScheme);
 	connect(e, SIGNAL(dirtied(QWidget*,bool)), this, SLOT(handleDirtied(QWidget*,bool)));
-	//connect(e, SIGNAL(positionInfo(QString)), ui->statusbar, SLOT(showMessage(QString)));
+	connect(e->model(), SIGNAL(positionInfo(QString)), ui->statusbar, SLOT(showMessage(QString)));
 	connect(e, SIGNAL(updateCursorPosition(QString)), cursor_position, SLOT(setText(QString)));
 
 	return e;
 }
 
-void MainWindow::on_actionNew_triggered()
-{
-	Editor * e = createEditor<CxxModel>();
+void AeWindow::on_actionNew_triggered() {
+	AeEditor * e = createEditor<AeCxxModel>();
 	appendEditor(e);
 	insertRubbish(e);
-
-	//open("/home/og/dev/clang-3.0.src/lib/Sema/SemaTemplateInstantiate.cpp");
 }
 
-void MainWindow::insertRubbish(Editor *e) {
+void AeWindow::insertRubbish(AeEditor *e) {
 	e->insertPlainText(
 "/* This is sample\n"
 "C++ code */ \n"
@@ -139,18 +134,15 @@ void MainWindow::insertRubbish(Editor *e) {
 "}\n");
 }
 
-void MainWindow::appendEditor(Editor* e) {
-//	m_editors.push_back(e);
+void AeWindow::appendEditor(AeEditor* e) {
 	m_tabs->addTab(e, e->displayName());
 	m_tabs->setCurrentWidget(e);
 }
 
-bool MainWindow::closeEditor(int tabindex) {
-//	Editor *e = m_editors[tabindex];
-	Editor *e = (Editor*) m_tabs->widget(tabindex);
+bool AeWindow::closeEditor(int tabindex) {
+	AeEditor *e = (AeEditor*) m_tabs->widget(tabindex);
 
 	if(e->dirty()) {
-
 		QMessageBox confirm;
 		confirm.setIcon(QMessageBox::Question);
 		confirm.setText("The document `" + e->displayName() + "' has been modified");
@@ -178,19 +170,15 @@ bool MainWindow::closeEditor(int tabindex) {
 
 	}
 
-//	delete m_editors[tabindex];
-//	m_editors.erase(m_editors.begin() + tabindex);
-//	m_tabs->removeTab(tabindex);
 	delete m_tabs->widget(tabindex);
 	m_tabs->removeTab(tabindex);
 	return true;
 }
 
-bool MainWindow::closeEditors(int except) {
+bool AeWindow::closeEditors(int except) {
 	int result = -1;
 	for(int i=m_tabs->count() - 1; i>=0; --i) {
-		//Editor* e = m_editors[i];
-		Editor *e = (Editor*) m_tabs->widget(i);
+		AeEditor *e = (AeEditor*) m_tabs->widget(i);
 		if(i == except)
 			continue;
 		if(e->dirty()) {
@@ -224,17 +212,14 @@ bool MainWindow::closeEditors(int except) {
 			break;
 			}
 		}
-//		delete m_editors[i];
-//		m_editors.erase(m_editors.begin() + i);
 		delete m_tabs->widget(i);
 		m_tabs->removeTab(i);
 	}
 	return m_tabs->count()==0;
 }
 
-void MainWindow::handleDirtied(QWidget * w, bool dirty) {
-	//const Editor& e = *m_editors[m_tabs->currentIndex()];
-	const Editor* e = (Editor*) w;
+void AeWindow::handleDirtied(QWidget * w, bool dirty) {
+	const AeEditor* e = (AeEditor*) w;
 	ui->actionDiff_to_Saved->setEnabled(dirty && e->fileExists());
 	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionSave->setEnabled(dirty);
@@ -243,10 +228,10 @@ void MainWindow::handleDirtied(QWidget * w, bool dirty) {
 	m_tabs->tabBar()->setTabTextColor(index, dirty? Qt::red : Qt::black);
 }
 
-void MainWindow::open(QString fileName) {
+void AeWindow::open(QString fileName) {
 	// first check to see if the file is already open. If so, just focus it.
 	for(int i=m_tabs->count()-1; i>=0; --i) {
-		Editor* e = (Editor*) m_tabs->widget(i);
+		AeEditor* e = (AeEditor*) m_tabs->widget(i);
 		if(e->filePath() == fileName) {
 			m_tabs->setCurrentWidget(e);
 			e->focusWidget();
@@ -254,7 +239,7 @@ void MainWindow::open(QString fileName) {
 		}
 	}
 	// if we make it here, the file is not already open. Create a new editor.
-	Editor * e = createEditor<CxxModel>();
+	AeEditor * e = createEditor<AeCxxModel>();
 	if(e->openFile(fileName)) {
 		appendEditor(e);
 	} else {
@@ -263,27 +248,26 @@ void MainWindow::open(QString fileName) {
 	}
 }
 
-void MainWindow::on_actionOpen_triggered() {
+void AeWindow::on_actionOpen_triggered() {
 	QString fileName = QFileDialog::getOpenFileName(this, tr("Open File"), "");
 	if(!fileName.isEmpty()) {
 		open(fileName);
 	}
 }
 
-void MainWindow::closeEvent(QCloseEvent * e) {
+void AeWindow::closeEvent(QCloseEvent * e) {
 	if(closeEditors(-1))
 		e->accept();
 	else
 		e->ignore();
 }
 
-void MainWindow::on_actionExit_triggered() {
+void AeWindow::on_actionExit_triggered() {
 	close();
 }
 
-bool MainWindow::save(int tabindex) {
-	//Editor *e = m_editors[tabindex];
-	Editor* e = (Editor*) m_tabs->widget(tabindex);
+bool AeWindow::save(int tabindex) {
+	AeEditor* e = (AeEditor*) m_tabs->widget(tabindex);
 	if(!e->saveFile()) {
 		QMessageBox::warning(this, "Error", "Could not save " + e->displayName());
 		return false;
@@ -295,9 +279,8 @@ bool MainWindow::save(int tabindex) {
 	return true;
 }
 
-bool MainWindow::save(int tabindex, QString location) {
-	//Editor *e = m_editors[tabindex];
-	Editor* e = (Editor*) m_tabs->widget(tabindex);
+bool AeWindow::save(int tabindex, QString location) {
+	AeEditor* e = (AeEditor*) m_tabs->widget(tabindex);
 	if(!e->saveFile(location)) {
 		QMessageBox::warning(this, "Error", "Could not save to " + location);
 		return false;
@@ -308,16 +291,15 @@ bool MainWindow::save(int tabindex, QString location) {
 	return true;
 }
 
-bool MainWindow::on_actionSave_triggered() {
-	//Editor& e = *m_editors[m_tabs->currentIndex()];
-	Editor* e = (Editor*) m_tabs->currentWidget();
+bool AeWindow::on_actionSave_triggered() {
+	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	if(e->fileExists())
 		return save(m_tabs->currentIndex());
 	else
 		return on_actionSave_As_triggered();
 }
 
-bool MainWindow::on_actionSave_As_triggered() {
+bool AeWindow::on_actionSave_As_triggered() {
 	QString newFileName = QFileDialog::getSaveFileName(this);
 	if(newFileName.isNull()) //cancelled
 		return false;
@@ -325,10 +307,9 @@ bool MainWindow::on_actionSave_As_triggered() {
 		return save(m_tabs->currentIndex(), newFileName);
 }
 
-void MainWindow::on_actionDiff_to_Saved_triggered()
+void AeWindow::on_actionDiff_to_Saved_triggered()
 {
-	//Editor* e = m_editors[m_tabs->currentIndex()];
-	Editor* e = (Editor*) m_tabs->currentWidget();
+	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	QTemporaryFile tmpfile(QDir::tempPath() + "/aristed.tmp." + e->displayName() + ".XXXXXX");
 	if(!tmpfile.open()) {
 		QMessageBox::warning(this, "Error", "Could not open " + tmpfile.fileName() + " for writing");
@@ -345,9 +326,8 @@ void MainWindow::on_actionDiff_to_Saved_triggered()
 		QMessageBox::warning(this, "Error", "QProcess::execute returned " + QString::number(status));
 }
 
-void MainWindow::on_actionRevert_to_Saved_triggered() {
-	//Editor* e = m_editors[m_tabs->currentIndex()];
-	Editor* e = (Editor*) m_tabs->currentWidget();
+void AeWindow::on_actionRevert_to_Saved_triggered() {
+	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	// should not be possible to trigger this action if there is no file
 	ae_assert(e->fileExists());
 
@@ -361,16 +341,16 @@ void MainWindow::on_actionRevert_to_Saved_triggered() {
 		e->openFile(e->filePath());
 }
 
-void MainWindow::on_actionClose_triggered() {
+void AeWindow::on_actionClose_triggered() {
 	closeEditor(m_tabs->currentIndex());
 }
 
-void MainWindow::on_actionClose_Others_triggered()
+void AeWindow::on_actionClose_Others_triggered()
 {
 	closeEditors(m_tabs->currentIndex());
 }
 
-void MainWindow::on_actionShow_File_Manager_triggered()
+void AeWindow::on_actionShow_File_Manager_triggered()
 {
 	if(ui->fileTree->isHidden())
 		ui->fileTree->show();
@@ -378,7 +358,7 @@ void MainWindow::on_actionShow_File_Manager_triggered()
 		ui->fileTree->hide();
 }
 
-void MainWindow::on_fileView_activated(const QModelIndex &index)
+void AeWindow::on_fileView_activated(const QModelIndex &index)
 {
 	if(!dirModel_->isDir(index)) {
 		QString file = dirModel_->filePath(index);

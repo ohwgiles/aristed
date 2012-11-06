@@ -2,22 +2,24 @@
 #define SEARCHPANEL_HPP
 
 #include <QWidget>
-class Editor;
+
+class AeEditor;
 class QLineEdit;
-class SearchPanel : public QWidget
-{
+
+class AeSearchPanel : public QWidget {
 	Q_OBJECT
 public:
-	explicit SearchPanel(Editor *editor);
+	explicit AeSearchPanel(AeEditor *editor);
 	
 protected:
 	void keyPressEvent(QKeyEvent *);
 	void focusInEvent(QFocusEvent *);
+
 signals:
 	void searchConfirmed(bool);
-public slots:
+
 private:
-	QLineEdit* le;
+	QLineEdit* lineEdit_;
 	
 };
 

@@ -1,11 +1,15 @@
-#include "linenumberpanel.hpp"
 #include <QPainter>
 #include <QScrollBar>
+#include <QLayout>
+#include <QTextBlock>
+
 #include "editor.hpp"
 #include "colourscheme.hpp"
 #include "log.hpp"
-#include <QLayout>
-LineNumberPanel::LineNumberPanel(Editor *e) : QWidget(e), editor_(e) {
+
+#include "linenumberpanel.hpp"
+
+AeLineNumberPanel::AeLineNumberPanel(AeEditor *e) : QWidget(e), editor_(e) {
 	connect(e, SIGNAL(cursorPositionChanged()), this, SLOT(update()));
 	connect(e->document(), SIGNAL(contentsChanged()), this, SLOT(update()));
 	connect(e->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(update()));
@@ -14,24 +18,10 @@ LineNumberPanel::LineNumberPanel(Editor *e) : QWidget(e), editor_(e) {
 	setFixedWidth(fontMetrics.width("99") + 8);
 }
 
-//QSize LineNumberPanel::sizeHint() const {
-//	QSize s = size();
-//	s.setHeight(editor_->sizeHint().height());
-//	return s;
-//}
-//QSize LineNumberPanel::minimumSize() const {
-//	return QSize(width(),editor_->height());
-//}
-
-
-void LineNumberPanel::paintEvent(QPaintEvent* e) {
-	//QWidget::paintEvent(event);
+void AeLineNumberPanel::paintEvent(QPaintEvent* e) {
 	QPainter painter(this);
 
 	painter.fillRect(e->rect(), colourScheme_->lineNumberBackground());
-	//painter.fillRect(e->rect(), colourScheme_->background());
-
-	//painter.fillRect(e->rect(), Qt::red);
 	const QFontMetrics fontMetrics = editor_->fontMetrics();
 	
 	static const QChar wrappingIndicator(0x2937);
@@ -48,7 +38,7 @@ void LineNumberPanel::paintEvent(QPaintEvent* e) {
 	painter.setPen(colourScheme_->foreground());
 	QTextBlock block = document->findBlockByLineNumber(lineNumber);
 	QString txt;
-	while(block.isValid()){// && (y - lineSpacing) < pageBottom) {
+	while(block.isValid() && (y - lineSpacing) < pageBottom) {
 		txt = QString::number(lineNumber + 1);
 		if(lineNumber == currentLine) {
 			painter.save();
@@ -75,10 +65,6 @@ void LineNumberPanel::paintEvent(QPaintEvent* e) {
 	
 	painter.setPen(Qt::DotLine);
 	painter.drawLine(width()-1, 0, width()-1, pageBottom);
-	w = fontMetrics.width(txt) + 8;
-	setFixedWidth(w);
-//	QRect g = geometry();
-//	g.setWidth(fontMetrics.width(txt) + 5);
-
+	setFixedWidth(fontMetrics.width(txt) + 8);
 }
 

@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 class QFileSystemModel;
-class Editor;
+class AeEditor;
 class QModelIndex;
 struct ColourScheme;
 class QLabel;
@@ -19,17 +19,17 @@ public:
 	QTabBar *tabBar() const { return QTabWidget::tabBar(); }
 };
 
-class MainWindow : public QMainWindow {
+class AeWindow : public QMainWindow {
 	Q_OBJECT
 public:
-	explicit MainWindow(QWidget *parent = 0);
-	~MainWindow();
+	explicit AeWindow(QWidget *parent = 0);
+	~AeWindow();
 private:
-	void appendEditor(Editor* e);
-	void insertRubbish(Editor* e);
+	void appendEditor(AeEditor* e);
+	void insertRubbish(AeEditor* e);
 
 	template<typename E>
-	Editor* createEditor();
+	AeEditor* createEditor();
 
 	bool save(int tabindex);
 	bool save(int tabindex, QString location);

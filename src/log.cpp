@@ -4,20 +4,20 @@
 
 namespace {
 
-const char* LogLevelToString(Log::LogLevel l) {
+const char* LogLevelToString(_Log::LogLevel l) {
 	switch(l) {
-	case Log::TRACE: return "TRACE";
-	case Log::DEBUG: return "DEBUG";
-	case Log::INFO:  return "INFO";
-	case Log::ERROR: return "ERROR";
-	case Log::FATAL: return "FATAL";
+	case _Log::TRACE: return "TRACE";
+	case _Log::DEBUG: return "DEBUG";
+	case _Log::INFO:  return "INFO";
+	case _Log::ERROR: return "ERROR";
+	case _Log::FATAL: return "FATAL";
 	}
 	return 0;
 }
 
 }
 
-Log::~Log() {
+_Log::~_Log() {
 	std::cout << "[" << LogLevelToString(lvl) << "] " << fn << ":" << line << " " << str() << std::endl;
 }
 

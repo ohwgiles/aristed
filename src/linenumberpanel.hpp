@@ -1,22 +1,24 @@
 
 #ifndef LINENUMBERPANEL_HPP
 #define LINENUMBERPANEL_HPP
+
 #include <QWidget>
-class Editor;
+
+class AeEditor;
 struct ColourScheme;
-class LineNumberPanel : public QWidget {
+
+class AeLineNumberPanel : public QWidget {
 public:
-	LineNumberPanel(Editor *e);
-	virtual ~LineNumberPanel() {}
+	AeLineNumberPanel(AeEditor *e);
+	virtual ~AeLineNumberPanel() {}
+
 	void setColourScheme(const ColourScheme* c) { colourScheme_ = c; }
 
-protected:
+private:
 	virtual void paintEvent(QPaintEvent *);
-	virtual QSize sizeHint() const { return QSize(w,0); }
-//	virtual QSize minimumSize() const;
-	Editor* editor_;
+
+	AeEditor* editor_;
 	const ColourScheme* colourScheme_;
-int w;
 };
 
 #endif // LINENUMBERPANEL_HPP

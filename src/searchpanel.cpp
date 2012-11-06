@@ -1,35 +1,31 @@
+#include <QLineEdit>
+#include <QVBoxLayout>
+#include "editor.hpp"
+#include "log.hpp"
+
 #include "searchpanel.hpp"
 
-#include <QLineEdit>
-#include "editor.hpp"
-#include <QVBoxLayout>
-#include "log.hpp"
-SearchPanel::SearchPanel(Editor *editor) :
+AeSearchPanel::AeSearchPanel(AeEditor *editor) :
 	QWidget(editor)
 {
-	//setFixedHeight(40);
-
 	QVBoxLayout* vbl = new QVBoxLayout();
-	le = new QLineEdit();
-	vbl->addWidget(le);
+	lineEdit_ = new QLineEdit();
+	vbl->addWidget(lineEdit_);
 	this->setLayout(vbl);
 
-	connect(le, SIGNAL(textChanged(QString)), editor, SLOT(searchString(QString)));
+	connect(lineEdit_, SIGNAL(textChanged(QString)), editor, SLOT(searchString(QString)));
 	connect(this, SIGNAL(searchConfirmed(bool)), editor, SLOT(moveToSearchResult(bool)));
-
 }
 
-void SearchPanel::focusInEvent(QFocusEvent *e) {
-	le->setFocus();
+void AeSearchPanel::focusInEvent(QFocusEvent *e) {
+	lineEdit_->setFocus();
 	e->accept();
 }
 
-
-
-void SearchPanel::keyPressEvent(QKeyEvent *e) {
+void AeSearchPanel::keyPressEvent(QKeyEvent *e) {
 	if(e->key() == Qt::Key_Return) {
-		ae_info("got enter");
 		emit searchConfirmed(e->modifiers() & Qt::SHIFT);
 		e->accept();
 	}
 }
+

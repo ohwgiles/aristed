@@ -1,7 +1,7 @@
-#include "textstyle.hpp"
+#include "codedecoration.hpp"
 
 
-CodeDecoration::CodeDecoration(QColor colour, Emphasis emphasis, int start, int length) {
+AeCodeDecoration::AeCodeDecoration(QColor colour, Emphasis emphasis, int start, int length) {
 	textCharFormat_.setForeground(colour);
 	textCharFormat_.setFontItalic(emphasis & ITALIC);
 	textCharFormat_.setFontWeight((emphasis & BOLD) ? QFont::Bold : QFont::Normal);
@@ -9,7 +9,7 @@ CodeDecoration::CodeDecoration(QColor colour, Emphasis emphasis, int start, int 
 	extents_.length = length;
 }
 
-CodeDecoration::CodeDecoration(QString message, QColor underline, int start, int length) {
+AeCodeDecoration::AeCodeDecoration(QString message, QColor underline, int start, int length) {
 	annotation_ = message;
 	textCharFormat_.setUnderlineColor(underline);
 	textCharFormat_.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);

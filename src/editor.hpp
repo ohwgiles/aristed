@@ -2,98 +2,72 @@
 #define EDITOR_HPP
 
 #include <QPlainTextEdit>
-#include "highlighter.hpp"
 
-class CodeModel;
+class AeCodeModel;
 struct ColourScheme;
-class LineNumberPanel;
-class SearchPanel;
+class AeLineNumberPanel;
+class AeSearchPanel;
 class TextStyle;
 class QCompleter;
+class AeHighlighter;
 
-class Editor : public QPlainTextEdit {
+class AeEditor : public QPlainTextEdit {
 	Q_OBJECT
+
 public:
-	explicit Editor(QWidget *parent = 0);
-	~Editor();
+	explicit AeEditor(QWidget *parent = 0);
+	~AeEditor();
 	virtual void setColourScheme(const ColourScheme *scheme);
 
-	QTextCursor wordUnderCursor() const;
 	QString displayName() const;
 	QString filePath() const { return filePath_; }
-
-	bool dirty() const { return mDirty;}
-
+	bool dirty() const { return dirty_;}
 	bool fileExists() const { return fileExists_; }
-
 	bool openFile(QString filename);
 	bool saveFile() { return saveFile(filePath_); }
 	bool saveFile(QString filename);
 
 	void setCxxModel();
+	AeCodeModel* model() const { return model_; }
 
-	Highlighter& highlighter() { return hlighter; }
-
-	void setPanelMargins(int l, int t, int r, int b)
-	{
-	 //m_margins.setCoords(l, t, r, b);
-//viewport()->width()
-		setViewportMargins(l, t, r, b);
-
-//		if ( flag(LineWrap) )
-//	{
-//		//qDebug("panel adjust : wrapping to %i", viewport()->width());
-//	m_doc->setWidthConstraint(wrapWidth());
-//	}
-	}
-
-	void showCompletions();
-protected:
-	virtual void showEvent(QShowEvent *) { relayout(); }
-	const ColourScheme* mColourScheme;
-	virtual void keyPressEvent(QKeyEvent *e);
-	//virtual const TextStyle* getStyle(int blockNumber, int index);
-	virtual bool event(QEvent *e);
-
-private:
-	LineNumberPanel* lineNumberPanel_;
-	SearchPanel* searchPanel_;
-	bool fileExists_;
-	void resizeEvent(QResizeEvent *e);
-	QWidget* mLineNumberBar;
-	QString filePath_;
-	void setDirty(bool b);
-	bool mDirty;
-	CodeModel* model;
-	QCompleter* mCompleter;
-
-	Highlighter hlighter;
-
-	friend class Highlighter;
 signals:
 	void dirtied(QWidget*,bool);
 	void updateCursorPosition(QString);
-protected slots:
-	void handleDocModified(bool);
+
+private slots:
 	virtual void handleCursorMoved();
 	void handleTextChanged(int pos, int removed, int added);
-	void updateLineNumberBarWidth(int /* newBlockCount */);
-	void updateLineNumberBar(const QRect &rect, int dy);
 	void highlightCurrentLine();
 	void completionChosen(QString);
 	void searchString(QString);
 	void moveToSearchResult(bool);
 
 private:
-	friend class LineNumberBar;
-	int lineNumberBarWidth();
-	void lineNumberBarPaintEvent(QPaintEvent *event);
-
-	QRegExp lastSearchTerm_;
 	void relayout();
+	void setDirty(bool b);
+	void showCompletions();
+	const ColourScheme* colourScheme_;
+	virtual void keyPressEvent(QKeyEvent *e);
+	virtual bool event(QEvent *e);
+	virtual void resizeEvent(QResizeEvent *e);
+
+private:
+	AeLineNumberPanel* lineNumberPanel_;
+	AeSearchPanel* searchPanel_;
+
+	AeCodeModel* model_;
+	QCompleter* completer_;
+	AeHighlighter* highlighter_;
+
+	QString filePath_;
+	bool fileExists_;
+	bool dirty_;
+
 	enum NavMode { NORMAL, FIND_UNTIL };
 	QTextCursor::MoveMode lastMoveMode_;
 	NavMode navMode_;
+
+	QRegExp lastSearchTerm_;
 	QList<QTextEdit::ExtraSelection> searchResults_;
 };
 
