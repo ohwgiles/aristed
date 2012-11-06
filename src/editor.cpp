@@ -60,11 +60,14 @@ void AeEditor::searchString(QString str) {
 	lastSearchTerm_ = QRegExp(str);
 	searchResults_.clear();
 	QString doc = document()->toPlainText();
-	int pos = -1;
-	while((pos = doc.indexOf(lastSearchTerm_, pos+1)) != -1) {
+	int pos = 0;
+	int len = 0;
+	while((pos = doc.indexOf(lastSearchTerm_, pos+len)) != -1) {
+		len = lastSearchTerm_.matchedLength();
+		len = len > 0 ? len : 1;
 		QTextEdit::ExtraSelection extra;
 		extra.cursor = QTextCursor(document()->docHandle(), pos);
-		extra.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, lastSearchTerm_.matchedLength());
+		extra.cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, len);
 		extra.format.setBackground(QBrush(colourScheme_->searchResult()));
 		searchResults_.append(extra);
 	}
