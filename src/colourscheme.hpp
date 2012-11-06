@@ -5,7 +5,7 @@
 
 struct ColourScheme {
 	virtual QColor background() const = 0;
-	virtual QColor lineNumberBackground() const = 0;
+	virtual QColor panelBackground() const = 0;
 	virtual QColor foreground() const = 0;
 	virtual QColor currentLineBg() const = 0;
 	virtual QColor nspace() const = 0;
@@ -92,7 +92,7 @@ struct SolarizedCommon : public ColourScheme, public Solarized {
 
 struct SolarizedLight : public SolarizedCommon {
 	virtual QColor background() const { return base3(); }
-	virtual QColor lineNumberBackground() const { return base2(); }
+	virtual QColor panelBackground() const { return base2(); }
 	virtual QColor foreground() const { return base00(); }
 	virtual QColor currentLineBg() const { return base2(); }
 	virtual QColor comment()    const { return base1(); }
@@ -102,7 +102,7 @@ struct SolarizedLight : public SolarizedCommon {
 
 struct SolarizedDark : public SolarizedCommon {
 	virtual QColor background() const { return base03(); }
-	virtual QColor lineNumberBackground() const { return base02(); }
+	virtual QColor panelBackground() const { return base02(); }
 	virtual QColor foreground() const { return base0(); }
 	virtual QColor currentLineBg() const { return base02(); }
 	virtual QColor comment()    const { return base01(); }

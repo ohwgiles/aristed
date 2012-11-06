@@ -116,6 +116,7 @@ void AeEditor::setColourScheme(const ColourScheme* scheme) {
 	setPalette(p);
 	highlightCurrentLine();
 	lineNumberPanel_->setColourScheme(scheme);
+	searchPanel_->setColourScheme(scheme);
 
 }
 void AeEditor::handleTextChanged(int pos, int removed, int added) {

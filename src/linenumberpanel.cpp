@@ -21,7 +21,7 @@ AeLineNumberPanel::AeLineNumberPanel(AeEditor *e) : QWidget(e), editor_(e) {
 void AeLineNumberPanel::paintEvent(QPaintEvent* e) {
 	QPainter painter(this);
 
-	painter.fillRect(e->rect(), colourScheme_->lineNumberBackground());
+	painter.fillRect(e->rect(), colourScheme_->panelBackground());
 	const QFontMetrics fontMetrics = editor_->fontMetrics();
 	
 	static const QChar wrappingIndicator(0x2937);
