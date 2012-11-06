@@ -26,6 +26,7 @@ struct ColourScheme {
 	virtual QColor typeParam() const = 0;
 	virtual QColor error() const { return Qt::red; }
 	virtual QColor warning() const { return Qt::yellow; }
+	virtual QColor searchResult() const { return background().lighter(200); }
 };
 
 namespace colour {
@@ -107,6 +108,7 @@ struct SolarizedDark : public SolarizedCommon {
 	virtual QColor comment()    const { return base01(); }
 	virtual QColor emphasised() const { return base1(); }
 	virtual QColor warning() const { return yellow(); }
+
 };
 
 }

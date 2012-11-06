@@ -80,15 +80,19 @@ protected slots:
 	void highlightCurrentLine();
 	void completionChosen(QString);
 	void searchString(QString);
+	void moveToSearchResult(bool);
 
 private:
 	friend class LineNumberBar;
 	int lineNumberBarWidth();
 	void lineNumberBarPaintEvent(QPaintEvent *event);
 
+	QRegExp lastSearchTerm_;
+	void relayout();
 	enum NavMode { NORMAL, FIND_UNTIL };
 	QTextCursor::MoveMode lastMoveMode_;
 	NavMode navMode_;
+	QList<QTextEdit::ExtraSelection> searchResults_;
 };
 
 #endif // EDITOR_HPP

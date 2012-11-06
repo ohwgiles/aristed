@@ -53,25 +53,37 @@ Editor::Editor(QWidget *parent) :
 	//p->addWidget(lnp);
 	//this->setLayout(p);
 	searchPanel_ = new SearchPanel(this);
-
+	searchPanel_->hide();
 
 }
 
 void Editor::searchString(QString str) {
 	ae_info(str << " : " << find(str));
-	QRegExp regexp(str);
-	QList<QTextEdit::ExtraSelection> extraSelections;
+	lastSearchTerm_ = QRegExp(str);
+	// unfortunately calling find() moves the cursor
+	QTextCursor originalCursor = textCursor();
 	moveCursor(QTextCursor::Start);
 	QTextCursor cur(document()->docHandle(), 0);
-	while(!(cur = document()->find(regexp, cur)).isNull())
-	{
-		 QTextEdit::ExtraSelection extra;
-		 extra.cursor = cur;
-		 extra.format.setBackground(QBrush(Qt::red));
-		 extraSelections.append(extra);
+	searchResults_.clear();
+	while(!(cur = document()->find(lastSearchTerm_, cur)).isNull()) {
+		QTextEdit::ExtraSelection extra;
+		extra.cursor = cur;
+		extra.format.setBackground(QBrush(mColourScheme->searchResult()));
+		//extra.format.
+		searchResults_.append(extra);
 	}
-
-	setExtraSelections(extraSelections);
+	setExtraSelections(searchResults_);
+	//setTextCursor(originalCursor);
+}
+void Editor::moveToSearchResult(bool select) {
+	QTextCursor cur = textCursor();
+	(void) select;
+	if(!(cur = document()->find(lastSearchTerm_, cur)).isNull()) {
+		if(!select)
+			cur.setPosition(cur.selectionStart());
+		setTextCursor(cur);
+		setFocus();
+	}
 }
 
 Editor::~Editor() {
@@ -130,6 +142,9 @@ void Editor::showCompletions() {
 }
 
 void Editor::handleCursorMoved() {
+	// something cleans the search results. re-set them here
+	setExtraSelections(searchResults_);
+
 	QTextCursor cur = textCursor();
 	QString loc = QString::number(cur.blockNumber()+1) + ":" + QString::number(cur.columnNumber());
 	emit updateCursorPosition(loc);
@@ -164,6 +179,14 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 		return;
 	}
 
+	if(e->key() == Qt::Key_Escape && searchPanel_->isVisible()) {
+		searchPanel_->hide();
+		searchResults_.clear();
+		setExtraSelections(searchResults_);
+		relayout();
+		return;
+	}
+
 	// allow the model to supply some key events
 	if(model->keyPressEvent(this, e))
 		return;
@@ -193,8 +216,11 @@ void Editor::keyPressEvent(QKeyEvent *e) {
 
 
 
-	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash)
-		ae_info("ctrl-/");
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash) {
+		searchPanel_->show();
+		relayout();
+		searchPanel_->setFocus();
+	}
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
 		showCompletions();
@@ -315,13 +341,18 @@ void Editor::updateLineNumberBar(const QRect &rect, int dy) {
 		updateLineNumberBarWidth(0);
 }
 
+void Editor::relayout() {
+	QRect cr = contentsRect();
+	int searchPanelHeight = searchPanel_->isVisible() ? searchPanel_->sizeHint().height() : 0;
+	setViewportMargins(lnp->width(),0,0,searchPanelHeight);
+	lnp->setGeometry(0,0,lnp->width(), cr.height());
+	searchPanel_->setGeometry(0,cr.height()-searchPanelHeight,cr.width(),searchPanelHeight);
+
+}
+
 void Editor::resizeEvent(QResizeEvent *e) {
 	QPlainTextEdit::resizeEvent(e);
-		QRect cr = contentsRect();
-	setViewportMargins(lnp->width(),0,0,searchPanel_->sizeHint().height());
-	lnp->setGeometry(0,0,lnp->width(), cr.height());
-	searchPanel_->setGeometry(0,cr.height()-searchPanel_->sizeHint().height(),cr.width(),searchPanel_->sizeHint().height());
-
+relayout();
 //	QRect cr = contentsRect();
 //	mLineNumberBar->setGeometry(QRect(cr.left(), cr.top(), lineNumberBarWidth(), cr.height()));
 }
