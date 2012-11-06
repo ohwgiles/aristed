@@ -2,13 +2,16 @@
 #include <QPainter>
 #include <QScrollBar>
 #include "editor.hpp"
+#include "colourscheme.hpp"
 #include "log.hpp"
-
+#include <QLayout>
 LineNumberPanel::LineNumberPanel(Editor *e) : QWidget(e), editor_(e) {
-	setFixedWidth(20);
 	connect(e, SIGNAL(cursorPositionChanged()), this, SLOT(update()));
 	connect(e->document(), SIGNAL(contentsChanged()), this, SLOT(update()));
 	connect(e->verticalScrollBar(), SIGNAL(valueChanged(int)), this, SLOT(update()));
+
+	const QFontMetrics fontMetrics = editor_->fontMetrics();
+	setFixedWidth(fontMetrics.width("99") + 8);
 }
 
 //QSize LineNumberPanel::sizeHint() const {
@@ -21,9 +24,14 @@ LineNumberPanel::LineNumberPanel(Editor *e) : QWidget(e), editor_(e) {
 //}
 
 
-void LineNumberPanel::paintEvent(QPaintEvent* ) {
+void LineNumberPanel::paintEvent(QPaintEvent* e) {
 	//QWidget::paintEvent(event);
 	QPainter painter(this);
+
+	painter.fillRect(e->rect(), colourScheme_->lineNumberBackground());
+	//painter.fillRect(e->rect(), colourScheme_->background());
+
+	//painter.fillRect(e->rect(), Qt::red);
 	const QFontMetrics fontMetrics = editor_->fontMetrics();
 	
 	static const QChar wrappingIndicator(0x2937);
@@ -37,6 +45,7 @@ void LineNumberPanel::paintEvent(QPaintEvent* ) {
 	int lineNumber = (editor_->verticalScrollBar()->isVisible() ? editor_->verticalScrollBar()->value() : 0);
 	int y = lineSpacing + 2;
 	
+	painter.setPen(colourScheme_->foreground());
 	QTextBlock block = document->findBlockByLineNumber(lineNumber);
 	QString txt;
 	while(block.isValid()){// && (y - lineSpacing) < pageBottom) {
@@ -48,11 +57,11 @@ void LineNumberPanel::paintEvent(QPaintEvent* ) {
 			painter.setFont(f);
 		}
 
-		painter.drawText(width() - fontMetrics.width(txt) - 2, y, txt);
+		painter.drawText(width() - fontMetrics.width(txt) - 4, y, txt);
 		
 		if(block.lineCount() > 1) {
 			for(int i = 1; i < block.lineCount(); ++i) {
-				painter.drawText(width() - fontMetrics.width(wrappingIndicator) - 1, y + i * lineSpacing, wrappingIndicator);
+				painter.drawText(width() - fontMetrics.width(wrappingIndicator), y + i * lineSpacing, wrappingIndicator);
 			}
 		}
 		
@@ -66,7 +75,10 @@ void LineNumberPanel::paintEvent(QPaintEvent* ) {
 	
 	painter.setPen(Qt::DotLine);
 	painter.drawLine(width()-1, 0, width()-1, pageBottom);
-	
-	setFixedWidth(fontMetrics.width(txt) + 5);
+	w = fontMetrics.width(txt) + 8;
+	setFixedWidth(w);
+//	QRect g = geometry();
+//	g.setWidth(fontMetrics.width(txt) + 5);
+
 }
 

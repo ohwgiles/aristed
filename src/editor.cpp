@@ -39,7 +39,7 @@ Editor::Editor(QWidget *parent) :
 	document()->setDefaultTextOption(opts);
 	setTabStopWidth(fontMetrics().width('M')*3);
 	updateLineNumberBarWidth(0);
-
+setFrameStyle(0);
 	mCompleter = new QCompleter(this);
 	mCompleter->setCompletionMode(QCompleter::PopupCompletion);
 	mCompleter->setCaseSensitivity(Qt::CaseInsensitive);
@@ -47,13 +47,14 @@ Editor::Editor(QWidget *parent) :
 	connect(mCompleter, SIGNAL(activated(QString)), this, SLOT(completionChosen(QString)));
 	//EditorLayout* p = new EditorLayout(this);
 
-	lnp = new LineNumberPanel(this);
+	lineNumberPanel_ = new LineNumberPanel(this);
 	//(void) lnp;
 	//lnp->attach(this);
 	//p->addWidget(lnp);
 	//this->setLayout(p);
 	searchPanel_ = new SearchPanel(this);
 	searchPanel_->hide();
+	relayout();
 
 }
 
@@ -108,13 +109,14 @@ void Editor::completionChosen(QString repl) {
 	insertPlainText(repl);
 }
 
-void Editor::setColourScheme(ColourScheme* scheme) {
+void Editor::setColourScheme(const ColourScheme* scheme) {
 	mColourScheme = scheme;
 	QPalette p(palette());
 	p.setColor(QPalette::Base, mColourScheme->background());
 	p.setColor(QPalette::Text, mColourScheme->foreground());
 	setPalette(p);
 	highlightCurrentLine();
+	lineNumberPanel_->setColourScheme(scheme);
 
 }
 void Editor::handleTextChanged(int pos, int removed, int added) {
@@ -344,8 +346,8 @@ void Editor::updateLineNumberBar(const QRect &rect, int dy) {
 void Editor::relayout() {
 	QRect cr = contentsRect();
 	int searchPanelHeight = searchPanel_->isVisible() ? searchPanel_->sizeHint().height() : 0;
-	setViewportMargins(lnp->width(),0,0,searchPanelHeight);
-	lnp->setGeometry(0,0,lnp->width(), cr.height());
+	setViewportMargins(lineNumberPanel_->width(),0,0,searchPanelHeight);
+	lineNumberPanel_->setGeometry(0,0,lineNumberPanel_->width(), cr.height());
 	searchPanel_->setGeometry(0,cr.height()-searchPanelHeight,cr.width(),searchPanelHeight);
 
 }

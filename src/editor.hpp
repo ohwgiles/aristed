@@ -16,7 +16,7 @@ class Editor : public QPlainTextEdit {
 public:
 	explicit Editor(QWidget *parent = 0);
 	~Editor();
-	virtual void setColourScheme(ColourScheme* scheme);
+	virtual void setColourScheme(const ColourScheme *scheme);
 
 	QTextCursor wordUnderCursor() const;
 	QString displayName() const;
@@ -49,12 +49,14 @@ public:
 
 	void showCompletions();
 protected:
+	virtual void showEvent(QShowEvent *) { relayout(); }
 	const ColourScheme* mColourScheme;
 	virtual void keyPressEvent(QKeyEvent *e);
 	//virtual const TextStyle* getStyle(int blockNumber, int index);
 	virtual bool event(QEvent *e);
 
-private:LineNumberPanel* lnp;
+private:
+	LineNumberPanel* lineNumberPanel_;
 	SearchPanel* searchPanel_;
 	bool fileExists_;
 	void resizeEvent(QResizeEvent *e);
