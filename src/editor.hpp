@@ -85,6 +85,10 @@ private:
 	friend class LineNumberBar;
 	int lineNumberBarWidth();
 	void lineNumberBarPaintEvent(QPaintEvent *event);
+
+	enum NavMode { NORMAL, FIND_UNTIL };
+	QTextCursor::MoveMode lastMoveMode_;
+	NavMode navMode_;
 };
 
 #endif // EDITOR_HPP

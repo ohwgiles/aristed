@@ -150,9 +150,48 @@ void Editor::setDirty(bool b) {
 	}
 }
 void Editor::keyPressEvent(QKeyEvent *e) {
+	QTextCursor cur = textCursor();
+	QTextCursor::MoveMode moveMode = e->modifiers() & Qt::SHIFT ? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor;
+
+	if(navMode_ == FIND_UNTIL) {
+		if(e->text().isEmpty()) return;
+		navMode_ = NORMAL;
+		while(!cur.atBlockEnd()) {
+			if(document()->characterAt(cur.position()) == e->text().at(0))
+				return setTextCursor(cur);
+			cur.movePosition(QTextCursor::Right, lastMoveMode_);
+		}
+		return;
+	}
+
 	// allow the model to supply some key events
 	if(model->keyPressEvent(this, e))
 		return;
+
+	// movement
+	if(e->modifiers() & Qt::ALT) {
+		switch(e->key()) {
+		case Qt::Key_J: cur.movePosition(QTextCursor::Down, moveMode); break;
+		case Qt::Key_K: cur.movePosition(QTextCursor::Up, moveMode); break;
+		case Qt::Key_H: cur.movePosition(QTextCursor::Left, moveMode); break;
+		case Qt::Key_L: cur.movePosition(QTextCursor::Right, moveMode); break;
+		case Qt::Key_B: cur.movePosition(QTextCursor::WordLeft, moveMode); break;
+		case Qt::Key_W: cur.movePosition(QTextCursor::WordRight, moveMode); break;
+		default:
+			goto alt_no_movement;
+		}
+		setTextCursor(cur);
+		return;
+		alt_no_movement: (void) 0;
+	}
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_A)
+		return cur.movePosition(QTextCursor::StartOfLine, moveMode), setTextCursor(cur);
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_E)
+		return cur.movePosition(QTextCursor::EndOfLine, moveMode), setTextCursor(cur);
+	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_T)
+		return (void)(navMode_ = FIND_UNTIL, lastMoveMode_ = moveMode);
+
+
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash)
 		ae_info("ctrl-/");
