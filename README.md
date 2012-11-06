@@ -6,23 +6,23 @@ introduction
 
 aristed is a project born out of my frustration with C++ IDEs.
 
-My ideal C++ editor:
-- high degree of semanticity (highlighting, completion and diagnostics)
-- optionally completely keyboard navigable
-- fast and lightweight
-- you can start typing as soon as you launch the program
-- git integration
+my ideal C++ editor
+- has a high degree of semanticity (highlighting, completion and diagnostics)
+- is completely keyboard navigable
+- is fast and lightweight
+- allows writing code immediately on launching, without setting up a project
+- has git integration
 
-Although this project is much more modest than the following, I am inspired by certain features of Eclipse CDT, XCode, vim, Notepad++, TextWrangler, aoeui
+although this project is much more modest than the following, I am inspired by certain features of Eclipse CDT, XCode, vim, Notepad++, TextWrangler and aoeui
 
-This project aims to stay small, adding functionality in a modular manner through the extensive use of external libraries. It should be easily hackable/extensible, features can be added as they are needed, or more realistically, when I have time.
+this project aims to stay small, adding functionality in a modular manner through the extensive use of external libraries. it should be easily hackable/extensible, features can be added as they are needed. run-time configurability is a low priority but code should be structured in a way to make this simple
 
-Planned development angles:
-- Extend semanticity. [Clang](http://clang.llvm.org/) is already used but there is much more to be gained
-- Navigation keybindings, [aoeui](http://aoeui.sourceforge.net/) style modification bindings
-- Git integration via [libgit2](http://libgit2.github.com/)
+planned development angles:
+- extend semanticity. [Clang](http://clang.llvm.org/) is already used but there is much more to be gained
+- navigation keybindings, [aoeui](http://aoeui.sourceforge.net/) style modification bindings
+- git integration via [libgit2](http://libgit2.github.com/)
 
-Current screenshot:
+screenshot:
 
 ![Screenshot](https://raw.github.com/ohwgiles/aristed/master/res/screenshot.png)
 
@@ -30,10 +30,10 @@ Current screenshot:
 dependencies
 ------------
 - Qt &gt;= 4.7
--- Known as libqt4-dev in debian-based distros
+-- known as libqt4-dev in debian-based distros
 - clang &gt;= 3.1
--- Known as libclang-dev in debian-based distros
--- Ubuntu 12.04 LTS only has version 3.0
+-- known as libclang-dev in debian-based distros
+-- ubuntu 12.04 LTS only has version 3.0
 
 
 compilation
@@ -54,12 +54,10 @@ navigation
 all navigation bindings can also use shift, to extend the current selection
 - alt-jkhl for movement
 - alt-b back a word
-- alt-f forward a word
+- alt-w forward a word
 - ctl-a start of line
 - ctl-e end of line
-- ctl-f &lt;char&gt; will advance beyond &lt;char&gt; if it appears in that line
 - ctl-t &lt;char&gt; will advance until &lt;char&gt; if it appears in that line
-- f and t will go backwards with shift
 
 file navigation
 ---------------
