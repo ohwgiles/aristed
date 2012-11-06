@@ -29,9 +29,9 @@ Current screenshot:
 
 dependencies
 ------------
-- Qt >= 4.7
+- Qt &gt;= 4.7
 -- Known as libqt4-dev in debian-based distros
-- clang >= 3.1
+- clang &gt;= 3.1
 -- Known as libclang-dev in debian-based distros
 -- Ubuntu 12.04 LTS only has version 3.0
 
