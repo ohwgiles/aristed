@@ -18,7 +18,7 @@ AeSearchPanel::AeSearchPanel(AeEditor *editor) :
 	vbl->setSpacing(0);
 	vbl->setMargin(4);
 	setLayout(vbl);
-
+	lineEdit_->installEventFilter(this);
 	connect(lineEdit_, SIGNAL(textChanged(QString)), editor, SLOT(searchString(QString)));
 	connect(this, SIGNAL(searchConfirmed(bool)), editor, SLOT(moveToSearchResult(bool)));
 }
@@ -36,12 +36,15 @@ void AeSearchPanel::setColourScheme(const ColourScheme* c) {
 	lineEdit_->setPalette(p);
 }
 
-void AeSearchPanel::keyPressEvent(QKeyEvent *e) {
-	if(e->key() == Qt::Key_Return) {
-		emit searchConfirmed(e->modifiers() & Qt::SHIFT);
-		e->accept();
+bool AeSearchPanel::eventFilter(QObject * o, QEvent * event) {
+	if(o == lineEdit_ && event->type() == QEvent::KeyPress) {
+		QKeyEvent* e = (QKeyEvent*) event;
+		if(e->key() == Qt::Key_Return) {
+			emit searchConfirmed(e->modifiers() & Qt::SHIFT);
+			return true;
+		}
 	}
-	e->ignore();
+	return false;
 }
 
 void AeSearchPanel::paintEvent(QPaintEvent *e) {

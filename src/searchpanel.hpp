@@ -14,7 +14,8 @@ public:
 	void setColourScheme(const ColourScheme* c);
 
 protected:
-	void keyPressEvent(QKeyEvent *);
+	//void keyPressEvent(QKeyEvent *);
+	bool eventFilter(QObject *, QEvent *);
 	void focusInEvent(QFocusEvent *);
 	void paintEvent(QPaintEvent *);
 signals:
