@@ -137,6 +137,7 @@ void AeWindow::insertRubbish(AeEditor *e) {
 void AeWindow::appendEditor(AeEditor* e) {
 	m_tabs->addTab(e, e->displayName());
 	m_tabs->setCurrentWidget(e);
+	e->setFocus();
 }
 
 bool AeWindow::closeEditor(int tabindex) {
