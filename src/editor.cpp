@@ -74,14 +74,46 @@ void AeEditor::searchString(QString str) {
 	setExtraSelections(searchResults_);
 }
 
-void AeEditor::moveToSearchResult(bool select) {
-	QTextCursor cur = textCursor();
-	if(!(cur = document()->find(lastSearchTerm_, cur)).isNull()) {
-		if(!select)
-			cur.setPosition(cur.selectionStart());
-		setTextCursor(cur);
-		setFocus();
+void AeEditor::nextSearchResult(bool select) {
+	QTextCursor start = textCursor();
+	QTextCursor cur = document()->find(lastSearchTerm_, start);
+	// if we haven't moved, the cursor was already at this result.
+	// Search for the next one instead
+	if(cur.selectionStart() == start.position()) {
+		cur.movePosition(QTextCursor::NextCharacter);
+		cur = document()->find(lastSearchTerm_, cur);
 	}
+	// if there is no result, try wrapped search (from beginning of doc)
+	if(cur.isNull()) {
+		cur = document()->find(lastSearchTerm_);
+	}
+	// if a result is found, go there
+	if(!cur.isNull()) {
+		start.setPosition(cur.selectionStart(), select? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor);
+		setTextCursor(start);
+	}
+}
+
+void AeEditor::prevSearchResult(bool select) {
+	QTextCursor start = textCursor();
+	QTextCursor cur = document()->find(lastSearchTerm_, start, QTextDocument::FindBackward);
+	// if there is no result, try wrapped search (from end of doc)
+	if(cur.isNull()) {
+		cur = QTextCursor(document());
+		cur.movePosition(QTextCursor::End);
+		cur = document()->find(lastSearchTerm_, cur, QTextDocument::FindBackward);
+	}
+	// if a result is found, go there
+	if(!cur.isNull()) {
+		start.setPosition(cur.selectionStart(), select? QTextCursor::KeepAnchor : QTextCursor::MoveAnchor);
+		setTextCursor(start);
+	}
+}
+
+void AeEditor::moveToSearchResult(bool select) {
+	setFocus();
+	nextSearchResult(select);
+
 }
 
 AeEditor::~AeEditor() {
@@ -214,11 +246,16 @@ void AeEditor::keyPressEvent(QKeyEvent *e) {
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_T)
 		return (void)(navMode_ = FIND_UNTIL, lastMoveMode_ = moveMode);
 
+	// searching
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Slash) {
 		searchPanel_->show();
 		relayout();
 		searchPanel_->setFocus();
 	}
+	if(e->modifiers() & Qt::ALT && e->key() == Qt::Key_N)
+		return nextSearchResult(e->modifiers() & Qt::SHIFT);
+	if(e->modifiers() & Qt::ALT && e->key() == Qt::Key_P)
+		return prevSearchResult(e->modifiers() & Qt::SHIFT);
 
 	if(e->modifiers() & Qt::CTRL && e->key() == Qt::Key_Space) {
 		showCompletions();

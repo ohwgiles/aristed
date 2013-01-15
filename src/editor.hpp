@@ -41,6 +41,8 @@ private slots:
 	void completionChosen(QString);
 	void searchString(QString);
 	void moveToSearchResult(bool);
+	void nextSearchResult(bool);
+	void prevSearchResult(bool);
 
 private:
 	void relayout();
