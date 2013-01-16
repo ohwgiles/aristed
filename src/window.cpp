@@ -54,6 +54,8 @@ void AeWindow::currentTabChanged(int index) {
 	AeEditor* e = (AeEditor*) m_tabs->widget(index);
 
 	setWindowTitle(e->displayName() + " - " + e->project()->displayName() + " - aristed");
+	//dirModel_->setRootPath(e->project()->sourceDir().absolutePath());
+	ui->fileView->setRootIndex(dirModel_->index(e->project()->sourceDir().absolutePath()));
 	m_tabs->setTabText(index, e->displayName());
 	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionDiff_to_Saved->setEnabled(e->fileExists() && e->dirty());
@@ -242,6 +244,7 @@ void AeWindow::handleDirtied(QWidget * w, bool dirty) {
 }
 
 void AeWindow::open(QString fileName) {
+	ae_info("Opening " << fileName.toUtf8().constData() << "?");
 	// first check to see if the file is already open. If so, just focus it.
 	for(int i=m_tabs->count()-1; i>=0; --i) {
 		AeEditor* e = (AeEditor*) m_tabs->widget(i);
@@ -254,11 +257,11 @@ void AeWindow::open(QString fileName) {
 	// if we make it here, the file is not already open. Create a new editor.
 	AeEditor * e = createEditor<AeCxxModel>();
 	if(e->openFile(fileName)) {
-		appendEditor(e);
 		AeProject* p = AeProject::getProject(projects_, fileName);
 		e->setProject(p);
 		p->editors_.append(e);
-		projects_.append(p);
+		if(!projects_.contains(p)) projects_.append(p);
+		appendEditor(e);
 	} else {
 		QMessageBox::warning(this, "Error", "Could not open " + fileName);
 		delete e;
@@ -309,6 +312,9 @@ bool AeWindow::save(int tabindex, QString location) {
 		if(e->project()->editors_.length() == 0)
 			projects_.removeOne(e->project());
 		e->setProject(p);
+		p->editors_.append(e);
+		if(!projects_.contains(p))
+			projects_.append(p);
 	}
 	// if we're here, all went well
 	m_tabs->tabBar()->setTabTextColor(tabindex, Qt::black);

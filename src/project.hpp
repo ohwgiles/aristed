@@ -12,7 +12,7 @@ public:
 	AeProject();
 	virtual ~AeProject() {}
 
-	QDir sourceDir() const { return sourceDir_; }
+	virtual QDir sourceDir() const { return sourceDir_; }
 	QDir buildDir() const { return buildDir_; }
 
 	virtual QString displayName() const;
@@ -24,10 +24,13 @@ public:
 private:
 	void setSourceDir(QDir sourceDir);
 	void parseAeproj(QFile projFile);
-	void parseCmakelists(QFile cmakeFile);
+	bool parseCmakecache(const QString cacheFile);
+
+	virtual bool containsPath(const QString path) const;
 
 	QDir sourceDir_;
 	QDir buildDir_;
+	QString projectName_;
 };
 
 

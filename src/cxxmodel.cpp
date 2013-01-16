@@ -70,6 +70,7 @@ void AeCxxModel::setFileName(QString name) {
 	args[5] = "-Wextra";
 	args[6] = strdup(QString(QString("-I")+fi.dir().path()).toUtf8().constData());
 	ae_info(name);
+	ae_info(args[2]);
 	ae_info(args[6]);
 
 	clangTranslationUnit_.lock();
