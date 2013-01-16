@@ -10,6 +10,7 @@ class AeSearchPanel;
 class TextStyle;
 class QCompleter;
 class AeHighlighter;
+class AeProject;
 
 class AeEditor : public QPlainTextEdit {
 	Q_OBJECT
@@ -29,6 +30,9 @@ public:
 
 	void setCxxModel();
 	AeCodeModel* model() const { return model_; }
+
+	AeProject* project() const { return project_; }
+	void setProject(AeProject* project) { project_ = project; }
 
 signals:
 	void dirtied(QWidget*,bool);
@@ -54,6 +58,8 @@ private:
 	virtual void resizeEvent(QResizeEvent *e);
 
 private:
+	AeProject* project_;
+
 	AeLineNumberPanel* lineNumberPanel_;
 	AeSearchPanel* searchPanel_;
 

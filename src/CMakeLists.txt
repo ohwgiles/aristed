@@ -42,6 +42,7 @@ add_executable(ae
  highlighter.cpp
  log.cpp
  linenumberpanel.cpp
+ project.cpp
  searchpanel.cpp
  ${UI_MOCS}
  ${UI_OUTPUT}

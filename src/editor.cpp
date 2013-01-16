@@ -18,6 +18,7 @@
 
 AeEditor::AeEditor(QWidget *parent) :
 	QPlainTextEdit(parent),
+	project_(0),
 	model_(0),
 	fileExists_(false),
 	dirty_(false)
@@ -128,7 +129,6 @@ AeEditor::~AeEditor() {
 void AeEditor::setCxxModel() {
 	delete model_;
 	model_ = new AeCxxModel(*highlighter_, colourScheme_, fileExists_ ? filePath_ : "untitled");
-	this->model_ = model_;
 	completer_->setModel(this->model_);
 }
 

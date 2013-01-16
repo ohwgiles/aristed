@@ -5,6 +5,7 @@
 #include "cxxmodel.hpp"
 #include "colourscheme.hpp"
 #include "log.hpp"
+#include "project.hpp"
 
 #include <QTabWidget>
 #include <QFileDialog>
@@ -15,10 +16,11 @@
 #include <QLabel>
 #include <QFileSystemModel>
 
-AeWindow::AeWindow(QWidget *parent) :
+AeWindow::AeWindow(QList<AeProject *> &projects, QWidget *parent) :
 	QMainWindow(parent),
 	ui(new Ui::MainWindow),
-	mColourScheme(new colour::SolarizedDark())
+	mColourScheme(new colour::SolarizedDark()),
+	projects_(projects)
 {
 	ui->setupUi(this);
 
@@ -51,7 +53,7 @@ void AeWindow::currentTabChanged(int index) {
 	if(index < 0) return;
 	AeEditor* e = (AeEditor*) m_tabs->widget(index);
 
-	setWindowTitle(e->displayName() + " - aristed");
+	setWindowTitle(e->displayName() + " - " + e->project()->displayName() + " - aristed");
 	m_tabs->setTabText(index, e->displayName());
 	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionDiff_to_Saved->setEnabled(e->fileExists() && e->dirty());
@@ -77,6 +79,10 @@ AeEditor* AeWindow::createEditor() {
 
 void AeWindow::on_actionNew_triggered() {
 	AeEditor * e = createEditor<AeCxxModel>();
+	AeProject* p = AeProject::getProject(projects_, "");
+	e->setProject(p);
+	p->editors_.append(e);
+	projects_.append(p);
 	appendEditor(e);
 	insertRubbish(e);
 }
@@ -171,6 +177,12 @@ bool AeWindow::closeEditor(int tabindex) {
 
 	}
 
+	AeProject* p = e->project();
+	p->editors_.removeOne(e);
+	if(p->editors_.length()==0) {
+		projects_.removeOne(p);
+		delete p;
+	}
 	delete m_tabs->widget(tabindex);
 	m_tabs->removeTab(tabindex);
 	return true;
@@ -243,6 +255,10 @@ void AeWindow::open(QString fileName) {
 	AeEditor * e = createEditor<AeCxxModel>();
 	if(e->openFile(fileName)) {
 		appendEditor(e);
+		AeProject* p = AeProject::getProject(projects_, fileName);
+		e->setProject(p);
+		p->editors_.append(e);
+		projects_.append(p);
 	} else {
 		QMessageBox::warning(this, "Error", "Could not open " + fileName);
 		delete e;
@@ -273,6 +289,7 @@ bool AeWindow::save(int tabindex) {
 		QMessageBox::warning(this, "Error", "Could not save " + e->displayName());
 		return false;
 	}
+
 	// if we're here, all went well
 	m_tabs->tabBar()->setTabTextColor(tabindex, Qt::black);
 	m_tabs->setTabText(tabindex, e->displayName());
@@ -285,6 +302,13 @@ bool AeWindow::save(int tabindex, QString location) {
 	if(!e->saveFile(location)) {
 		QMessageBox::warning(this, "Error", "Could not save to " + location);
 		return false;
+	}
+	AeProject* p = AeProject::getProject(projects_, location);
+	if(p != e->project()) {
+		e->project()->editors_.removeOne(e);
+		if(e->project()->editors_.length() == 0)
+			projects_.removeOne(e->project());
+		e->setProject(p);
 	}
 	// if we're here, all went well
 	m_tabs->tabBar()->setTabTextColor(tabindex, Qt::black);

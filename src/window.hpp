@@ -7,6 +7,7 @@ class AeEditor;
 class QModelIndex;
 struct ColourScheme;
 class QLabel;
+class AeProject;
 namespace Ui {
 class MainWindow;
 }
@@ -22,7 +23,7 @@ public:
 class AeWindow : public QMainWindow {
 	Q_OBJECT
 public:
-	explicit AeWindow(QWidget *parent = 0);
+	explicit AeWindow(QList<AeProject*>& projects, QWidget *parent = 0);
 	~AeWindow();
 private:
 	void appendEditor(AeEditor* e);
@@ -64,6 +65,8 @@ private:
 	QFileSystemModel* dirModel_;
 	//QVector<Editor *> m_editors;
 	QLabel* cursor_position;
+
+	QList<AeProject*>& projects_;
 };
 
 #endif // MAINWINDOW_HPP
