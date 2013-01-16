@@ -30,11 +30,11 @@ screenshot:
 dependencies
 ------------
 - Qt &gt;= 4.7
--- known as libqt4-dev in debian-based distros
-- clang &gt;= 3.1
--- known as libclang-dev in debian-based distros
--- ubuntu 12.04 LTS only has version 3.0
-
+  - known as libqt4-dev in debian-based distros
+- clang == 3.1
+  - known as libclang-dev in debian-based distros
+  - ubuntu 12.04 LTS only has version 3.0
+  - clang 3.2 has a segfault issue
 
 compilation
 -----------
@@ -52,17 +52,17 @@ these are ideas, some have been implemented, the rest are todos
 navigation
 ----------
 all navigation bindings can also use shift, to extend the current selection
-- alt-jkhl for movement
-- alt-b back a word
-- alt-w forward a word
-- ctl-a start of line
-- ctl-e end of line
-- ctl-t &lt;char&gt; will advance until &lt;char&gt; if it appears in that line
+- alt-jkhl for movement &#10004;
+- alt-b back a word &#10004;
+- alt-w forward a word &#10004;
+- ctl-a start of line &#10004;
+- ctl-e end of line &#10004;
+- ctl-t &lt;char&gt; will advance until &lt;char&gt; if it appears in that line &#10004;
 
 file navigation
 ---------------
 - ctrl-r will invoke Eclipse-style reverse-incremental filename search dialog
-- f9 will show/hide file system browser
+- f9 will show/hide file system browser &#10004;
 
 editing
 -------
@@ -73,17 +73,17 @@ editing
 
 search panel
 ------------
-- ctrl-/ shows and focuses search panel
-- all matches are highlighted as you type
-- highlights will only be visible while panel is visible
-- enter will move the cursor to the first match after the cursor and focus the editor
-- esc will close the panel without moving the cursor (and disable the highlights)
-- alt-n will move to next result
-- alt-p will move to previous result
-- as with the navigation bindings, adding shift will select from cursor position until next match
-- searches are single-line regex, case insensitive by default
+- ctrl-/ shows and focuses search panel &#10004;
+- all matches are highlighted as you type &#10004;
+- highlights will only be visible while panel is visible &#10004;
+- enter will move the cursor to the first match after the cursor and focus the editor &#10004;
+- esc will close the panel without moving the cursor (and disable the highlights) &#10004;
+- alt-n will move to next result &#10004;
+- alt-p will move to previous result &#10004;
+- as with the navigation bindings, adding shift will select from cursor position until next match &#10004;
+- searches are single-line regex, case insensitive by default &#10004;
 - alt-i will toggle case sensitivity
-- alt-r will toggle regex search
+- <del>alt-r will toggle regex search</del>
 
 replace panel
 -------------
