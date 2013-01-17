@@ -33,6 +33,8 @@ AeWindow::AeWindow(QList<AeProject *> &projects, QWidget *parent) :
 	ui->fileView->setColumnHidden(3, true);
 	ui->fileView->header()->hide();
 
+	ui->console->hide();
+
 	m_tabs = new TabWidget(this);
 	QIcon icon(":icon.png");
 
@@ -396,4 +398,11 @@ void AeWindow::on_fileView_activated(const QModelIndex &index)
 		open(file);
 	}
 
+}
+
+void AeWindow::on_actionBuild_Run_triggered()
+{
+	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
+	if(e->project()->build(ui->consoleWindow, true))
+		ui->console->show();
 }

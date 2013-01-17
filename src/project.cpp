@@ -2,9 +2,14 @@
 
 #include <QFileDialog>
 #include <QSettings>
+#include <QTextBrowser>
+#include <QProcess>
+#include <QMessageBox>
 
 #include "log.hpp"
-AeProject::AeProject()
+AeProject::AeProject() :
+	QObject(),
+process_(0)
 {
 }
 
@@ -35,6 +40,10 @@ void AeProject::parseAeproj(const QString projFile) {
 
 	buildCmd_ = proj.value("buildcmd").toString();
 	ae_debug("Found build command: " << buildCmd_);
+
+	runCmd_ = proj.value("runcmd").toString();
+	ae_debug("Found run command: " << runCmd_);
+
 }
 
 bool AeProject::parseCmakecache(const QString cacheFile) {
@@ -151,3 +160,47 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 	// no project found. Assume the current dir.
 	return p;
 }
+bool AeProject::build(QTextBrowser* displayWidget, bool andRun) {
+	if(process_ && process_->isOpen()) {
+		int result = QMessageBox::question(0, "A process is already running", "Currently waiting for ``"+lastLaunchCmd_+"'' to complete execution. Do you want to kill it?", QMessageBox::Yes | QMessageBox::No);
+		if(result == QMessageBox::Yes) {
+			// todo properly
+			process_->kill();
+			if(!process_->waitForFinished(1000)) {
+				ae_error("Could not kill process");
+				return false;
+			}
+			// it was killed, continue
+		} else {
+			return false;
+		}
+	}
+	process_ = new QProcess();
+	outputWindow_ = displayWidget;
+	connect(process_, SIGNAL(readyRead()), this, SLOT(processOutput()));
+	connect(process_, SIGNAL(finished(int)), this, SLOT(processEnded(int)));
+
+	process_->setWorkingDirectory(buildDir_.absolutePath());
+	outputWindow_->insertPlainText("Executing " + buildCmd_ + " from " + buildDir_.absolutePath() + "\n");
+	lastLaunchCmd_ = buildCmd_;
+	runOnExit_ = andRun;
+	process_->start(lastLaunchCmd_);
+	return true;
+}
+
+void AeProject::processOutput() {
+	//outputWindow_->append(process_->readAll());
+	outputWindow_->insertPlainText(process_->readAll());
+}
+
+void AeProject::processEnded(int exitCode) {
+	outputWindow_->insertPlainText("Process " + lastLaunchCmd_ + " ended with exit code: " + QString::number(exitCode) + "\n");
+	if(runOnExit_) {
+		runOnExit_ = false;
+		process_->setWorkingDirectory(buildDir_.absolutePath());
+		outputWindow_->insertPlainText("Executing " + runCmd_ + " from " + buildDir_.absolutePath() + "\n");
+		lastLaunchCmd_ = runCmd_;
+		process_->start(lastLaunchCmd_);
+	}
+}
+

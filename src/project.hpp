@@ -6,8 +6,11 @@
 #include <QFile>
 
 class AeEditor;
+class QProcess;
+class QTextBrowser;
 
-class AeProject {
+class AeProject : public QObject {
+	Q_OBJECT
 public:
 	AeProject();
 	virtual ~AeProject() {}
@@ -21,6 +24,8 @@ public:
 
 	static AeProject* getProject(const QList<AeProject *> projects, QString fileName);
 
+	bool build(QTextBrowser* displayWidget, bool andRun);
+
 private:
 	void setSourceDir(QDir sourceDir);
 	void parseAeproj(const QString projFile);
@@ -31,7 +36,15 @@ private:
 	QDir sourceDir_;
 	QDir buildDir_;
 	QString buildCmd_;
+	QString runCmd_;
 	QString projectName_;
+	QString lastLaunchCmd_;
+	QProcess* process_;
+	QTextBrowser* outputWindow_;
+	bool runOnExit_;
+private slots:
+	void processOutput();
+	void processEnded(int exitCode);
 };
 
 

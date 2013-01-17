@@ -58,6 +58,8 @@ private slots:
 
 	void on_fileView_activated(const QModelIndex &index);
 
+	void on_actionBuild_Run_triggered();
+
 private:
 	TabWidget* m_tabs;
 	Ui::MainWindow *ui;
