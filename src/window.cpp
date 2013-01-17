@@ -33,6 +33,7 @@ AeWindow::AeWindow(QList<AeProject *> &projects, QWidget *parent) :
 	ui->fileView->setColumnHidden(2, true);
 	ui->fileView->setColumnHidden(3, true);
 	ui->fileView->header()->hide();
+	ui->fileTree->hide();
 
 	ui->console->hide();
 
