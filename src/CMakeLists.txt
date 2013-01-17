@@ -12,7 +12,7 @@ set(CMAKE_AUTOMOC TRUE)
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
 link_directories(${QT_LIBRARY_DIR} ${CLANG_LIBRARY_PATH})
 
-qt4_wrap_ui(UI_OUTPUT mainwindow.ui)
+qt4_wrap_ui(UI_OUTPUT mainwindow.ui filesearchdialog.ui)
 qt4_add_resources(RCC resources.qrc)
 
 include_directories(
@@ -39,6 +39,7 @@ add_executable(ae
  cxxmodel.cpp
  codedecoration.cpp
  editor.cpp
+ filesearchdialog.cpp
  highlighter.cpp
  log.cpp
  linenumberpanel.cpp

@@ -60,6 +60,8 @@ private slots:
 
 	void on_actionBuild_Run_triggered();
 
+	void on_actionOpen_Resource_triggered();
+
 private:
 	TabWidget* m_tabs;
 	Ui::MainWindow *ui;

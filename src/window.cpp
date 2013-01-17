@@ -6,6 +6,7 @@
 #include "colourscheme.hpp"
 #include "log.hpp"
 #include "project.hpp"
+#include "filesearchdialog.hpp"
 
 #include <QTabWidget>
 #include <QFileDialog>
@@ -405,4 +406,13 @@ void AeWindow::on_actionBuild_Run_triggered()
 	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	if(e->project()->build(ui->consoleWindow, true))
 		ui->console->show();
+}
+
+void AeWindow::on_actionOpen_Resource_triggered()
+{
+	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
+	AeFileSearchDialog* fsd = new AeFileSearchDialog(e->project());
+	fsd->exec();
+	ae_info("User selected " << fsd->fileToOpen());
+	open(fsd->fileToOpen());
 }

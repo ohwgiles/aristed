@@ -65,6 +65,7 @@
     <property name="title">
      <string>Project</string>
     </property>
+    <addaction name="actionOpen_Resource"/>
     <addaction name="actionBuild_Run"/>
    </widget>
    <addaction name="menuFile"/>
@@ -239,6 +240,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Return</string>
+   </property>
+  </action>
+  <action name="actionOpen_Resource">
+   <property name="text">
+    <string>Open Resource...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>
