@@ -30,10 +30,10 @@ void AeLineNumberPanel::paintEvent(QPaintEvent* e) {
 
 	QTextDocument *document = editor_->document();
 	const int currentLine = editor_->textCursor().blockNumber();
-	
+
 	const int pageBottom = editor_->viewport()->height();
 	int lineNumber = (editor_->verticalScrollBar()->isVisible() ? editor_->verticalScrollBar()->value() : 0);
-	int y = lineSpacing + 2;
+	int y = editor_->contentOffset().y() + lineSpacing - 3;
 	
 	painter.setPen(colourScheme_->foreground());
 	QTextBlock block = document->findBlockByLineNumber(lineNumber);
@@ -65,6 +65,10 @@ void AeLineNumberPanel::paintEvent(QPaintEvent* e) {
 	
 	painter.setPen(Qt::DotLine);
 	painter.drawLine(width()-1, 0, width()-1, pageBottom);
-	setFixedWidth(fontMetrics.width(txt) + 8);
+	int newWidth = fontMetrics.width(txt) + 8;
+	if(newWidth != width()) {
+		setFixedWidth(fontMetrics.width(txt) + 8);
+		editor_->relayout();
+	}
 }
 

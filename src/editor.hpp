@@ -34,6 +34,10 @@ public:
 	AeProject* project() const { return project_; }
 	void setProject(AeProject* project) { project_ = project; }
 
+	// reimplement publicly for linenumberpanel
+	QPointF contentOffset() const { return QPlainTextEdit::contentOffset(); }
+	void relayout();
+
 signals:
 	void dirtied(QWidget*,bool);
 	void updateCursorPosition(QString);
@@ -49,7 +53,6 @@ private slots:
 	void prevSearchResult(bool);
 
 private:
-	void relayout();
 	void setDirty(bool b);
 	void showCompletions();
 	const ColourScheme* colourScheme_;
