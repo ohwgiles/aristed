@@ -1,6 +1,8 @@
 #include "project.hpp"
 
 #include <QFileDialog>
+#include <QSettings>
+
 #include "log.hpp"
 AeProject::AeProject()
 {
@@ -16,8 +18,18 @@ void AeProject::setSourceDir(QDir sourceDir) {
 	sourceDir_ = sourceDir;
 }
 
-void AeProject::parseAeproj(QFile projFile) {
-	(void)projFile;
+void AeProject::parseAeproj(const QString projFile) {
+	QSettings proj(projFile, QSettings::IniFormat);
+	projectName_ = proj.value("project").toString();
+	QFileInfo fi(projFile);
+	sourceDir_ = fi.absoluteDir();
+	ae_info(sourceDir_.absolutePath());
+	QDir builddir(sourceDir_);
+	builddir.cd(proj.value("builddir").toString());
+	buildDir_ = builddir.absolutePath();
+	ae_info(buildDir_.absolutePath());
+	buildCmd_ = proj.value("buildcmd").toString();
+	ae_info(buildCmd_);
 }
 
 bool AeProject::parseCmakecache(const QString cacheFile) {
@@ -60,51 +72,55 @@ public:
 
 AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileName) {
 	ae_info("getProject for file " << fileName);
+	// The filename may be empty if this is a new unsaved file
 	if(fileName.isEmpty()) {
 		ae_info("empty filename");
 		return new UnboundTemporaryProject();
 	}
-
+	// The file may have a name but not yet be saved
 	QFileInfo fi(fileName);
 	if(!fi.exists()) {
 		ae_info("File does not exist");
 		return new UnboundTemporaryProject();
 	}
-
-	QDir fileDir(fi.absoluteDir());
-
+	// Alternatively, the file may belong to an existing project.
+	// Search for it.
+	QDir guessedSourceDir(fi.absoluteDir());
 	foreach(AeProject* p, projects) {
-		if(p->containsPath(fileDir.absolutePath()))
+		if(p->containsPath(guessedSourceDir.absolutePath()))
 			return p;
 	}
 
+	// No existing project suits. Attempt to open a new one.
+	AeProject* p = new AeProject();
+	// if nothing better comes up, this file's directory is the source dir
+	p->setSourceDir(guessedSourceDir);
+
 	// first scan upwards looking for CMakeCache.txt
+	QDir fileDir(guessedSourceDir);
 	while(!fileDir.isRoot()) {
 		ae_info("Searching for CMakeCache.txt in " << fileDir.absolutePath());
 		QFileInfo cmakecache(fileDir.absoluteFilePath("CMakeCache.txt"));
-
 		if(cmakecache.exists()) {
 			ae_info("Found CMakeCache.txt in " << fileDir.absolutePath());
-			AeProject* p = new AeProject();
-			if(p->parseCmakecache(cmakecache.filePath()))
-			// todo scan source dir for .aeproj
-			return p;
+			if(p->parseCmakecache(cmakecache.filePath())) {
+				guessedSourceDir = p->sourceDir();
+				break;
+			}
 		}
 		fileDir.cdUp();
 	}
 
-//	// scan upwards looking for project files
-//	fileDir = fi.absoluteDir();
-//	while(!fileDir.isRoot()) {
-//		QFileInfo aeproj(fileDir.absoluteFilePath(".aeproj"));
-//		if(aeproj.exists()) {
-//			AeProject* p = new AeProject();
-//			p->parseCmakelists(cmakecache.filePath());
-//			return p;
-
-//		}
-//		fileDir.cdUp();
-//	}
+	// scan upwards looking for project files
+	fileDir = guessedSourceDir;
+	while(!fileDir.isRoot()) {
+		QFileInfo aeproj(fileDir.absoluteFilePath(".aeproj"));
+		if(aeproj.exists()) {
+			p->parseAeproj(aeproj.filePath());
+			return p;
+		}
+		fileDir.cdUp();
+	}
 
 //	// if still not found, try CMakeLists and prompt for .aeproj creation
 //	fileDir = fi.absoluteDir();
@@ -125,7 +141,5 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 //	}
 
 	// no project found. Assume the current dir.
-	AeProject* p = new AeProject();
-	p->setSourceDir(fi.absoluteDir());
 	return p;
 }

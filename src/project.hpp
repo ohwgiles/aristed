@@ -23,13 +23,14 @@ public:
 
 private:
 	void setSourceDir(QDir sourceDir);
-	void parseAeproj(QFile projFile);
+	void parseAeproj(const QString projFile);
 	bool parseCmakecache(const QString cacheFile);
 
 	virtual bool containsPath(const QString path) const;
 
 	QDir sourceDir_;
 	QDir buildDir_;
+	QString buildCmd_;
 	QString projectName_;
 };
 
