@@ -413,7 +413,8 @@ void AeWindow::on_actionOpen_Resource_triggered()
 {
 	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	AeFileSearchDialog* fsd = new AeFileSearchDialog(e->project());
-	fsd->exec();
-	ae_info("User selected " << fsd->fileToOpen());
-	open(fsd->fileToOpen());
+	if(fsd->exec()) {
+		ae_info("User selected " << fsd->fileToOpen());
+		open(fsd->fileToOpen());
+	}
 }
