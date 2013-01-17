@@ -20,16 +20,21 @@ void AeProject::setSourceDir(QDir sourceDir) {
 
 void AeProject::parseAeproj(const QString projFile) {
 	QSettings proj(projFile, QSettings::IniFormat);
+
 	projectName_ = proj.value("project").toString();
+	ae_info("Found project name: " << projectName_);
+
 	QFileInfo fi(projFile);
 	sourceDir_ = fi.absoluteDir();
-	ae_info(sourceDir_.absolutePath());
+	ae_debug("Found source dir: " << sourceDir_.absolutePath());
+
 	QDir builddir(sourceDir_);
 	builddir.cd(proj.value("builddir").toString());
 	buildDir_ = builddir.absolutePath();
-	ae_info(buildDir_.absolutePath());
+	ae_debug("Found build dir: " << buildDir_.absolutePath());
+
 	buildCmd_ = proj.value("buildcmd").toString();
-	ae_info(buildCmd_);
+	ae_debug("Found build command: " << buildCmd_);
 }
 
 bool AeProject::parseCmakecache(const QString cacheFile) {
@@ -41,19 +46,19 @@ bool AeProject::parseCmakecache(const QString cacheFile) {
 	if(rx.indexIn(contents) == -1)
 		return false;
 	projectName_ = rx.cap(1);
-	ae_info("Found project name: " << projectName_);
+	ae_debug("Found project name: " << projectName_);
 
 	rx = QRegExp(projectName_ + "_SOURCE_DIR:STATIC=([^\\n]+)");
 	if(rx.indexIn(contents) == -1)
 		return false;
 	sourceDir_ = rx.cap(1);
-	ae_info("Found source dir: " << sourceDir_.absolutePath());
+	ae_debug("Found source dir: " << sourceDir_.absolutePath());
 
 	rx = QRegExp(projectName_ + "_BINARY_DIR:STATIC=([^\\n]+)");
 	if(rx.indexIn(contents) == -1)
 		return false;
 	buildDir_ = rx.cap(1);
-	ae_info("Found build dir: " << buildDir_.absolutePath());
+	ae_debug("Found build dir: " << buildDir_.absolutePath());
 
 	return true;
 }
@@ -71,22 +76,23 @@ public:
 };
 
 AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileName) {
-	ae_info("getProject for file " << fileName);
 	// The filename may be empty if this is a new unsaved file
 	if(fileName.isEmpty()) {
-		ae_info("empty filename");
+		ae_debug("Get project for empty file");
 		return new UnboundTemporaryProject();
 	}
+	ae_debug("Get project for " << fileName);
 	// The file may have a name but not yet be saved
 	QFileInfo fi(fileName);
 	if(!fi.exists()) {
-		ae_info("File does not exist");
+		ae_debug("File does not exist");
 		return new UnboundTemporaryProject();
 	}
 	// Alternatively, the file may belong to an existing project.
 	// Search for it.
 	QDir guessedSourceDir(fi.absoluteDir());
 	foreach(AeProject* p, projects) {
+		ae_debug("Comparing project " << p->displayName());
 		if(p->containsPath(guessedSourceDir.absolutePath()))
 			return p;
 	}
@@ -99,10 +105,10 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 	// first scan upwards looking for CMakeCache.txt
 	QDir fileDir(guessedSourceDir);
 	while(!fileDir.isRoot()) {
-		ae_info("Searching for CMakeCache.txt in " << fileDir.absolutePath());
+		ae_debug("Searching for CMakeCache.txt in " << fileDir.absolutePath());
 		QFileInfo cmakecache(fileDir.absoluteFilePath("CMakeCache.txt"));
 		if(cmakecache.exists()) {
-			ae_info("Found CMakeCache.txt in " << fileDir.absolutePath());
+			ae_debug("Found CMakeCache.txt in " << fileDir.absolutePath());
 			if(p->parseCmakecache(cmakecache.filePath())) {
 				guessedSourceDir = p->sourceDir();
 				break;
@@ -114,8 +120,10 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 	// scan upwards looking for project files
 	fileDir = guessedSourceDir;
 	while(!fileDir.isRoot()) {
+		ae_debug("Searching for .aeproj in " << fileDir.absolutePath());
 		QFileInfo aeproj(fileDir.absoluteFilePath(".aeproj"));
 		if(aeproj.exists()) {
+			ae_debug("Found .aeproj in " << fileDir.absolutePath());
 			p->parseAeproj(aeproj.filePath());
 			return p;
 		}
