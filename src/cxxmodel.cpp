@@ -1,7 +1,6 @@
 #include <QToolTip>
 #include <QAbstractListModel>
 #include <QAbstractItemView>
-#include <Q3SyntaxHighlighter>
 #include <QCompleter>
 #include <clang-c/Index.h>
 #include <QThread>
@@ -85,7 +84,7 @@ void AeCxxModel::setFileName(QString name) {
 }
 
 
-QString AeCxxModel::getTipAt(int row, int col) {
+QString AeCxxModel::getTipAt(unsigned int row, unsigned int col) {
 	codeAnnotations_.scopedLock();
 	for(int i=0, N=codeAnnotations_()[row].size(); i!=N; ++i) {
 		const Annotation& ds = codeAnnotations_()[row][i];

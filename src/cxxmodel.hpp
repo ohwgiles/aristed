@@ -51,7 +51,7 @@ public:
 	QVariant data(const QModelIndex&, int) const;
 
 	// this model currently returns a diagnostic message, if any
-	QString getTipAt(int row, int col);
+	QString getTipAt(unsigned int row, unsigned int col);
 
 signals:
 	void positionInfo(QString);
@@ -74,8 +74,8 @@ private:
 	void findCursorInfo(char s);
 
 	struct Annotation {
-		int start;
-		int length;
+		unsigned int start;
+		unsigned int length;
 		QString message;
 	};
 

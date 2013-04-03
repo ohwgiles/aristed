@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.6) # 2.8.6 required for automoc
+cmake_minimum_required(VERSION 2.8.9)
 project(aristed)
 
 # You may need to set these relative to your clang installation
@@ -7,24 +7,16 @@ set(CLANG_LIBRARY_PATH "/usr/lib/llvm" CACHE PATH "Path to clang shared library"
 set(CLANG_INCLUDE_DIR "/usr/include/clang" CACHE PATH "Path to clang headers")
 
 set(CMAKE_AUTOMOC TRUE)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# Grab required libraries
-find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
-link_directories(${QT_LIBRARY_DIR} ${CLANG_LIBRARY_PATH})
+find_package(Qt5Widgets REQUIRED)
 
-qt4_wrap_ui(UI_OUTPUT mainwindow.ui filesearchdialog.ui)
-qt4_add_resources(RCC resources.qrc)
-
-include_directories(
- ${QT_INCLUDES}
- ${CLANG_INCLUDE_DIR}
- ${CMAKE_CURRENT_BINARY_DIR}
- ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
+include_directories( ${CLANG_INCLUDE_DIR})
+link_directories(${CLANG_LIBRARY_PATH})
 
 add_definitions(
  -g
+ -std=c++11
  -fno-rtti
  -DARCH_HEADERS=\"${ARCH_HEADERS}\"
  -Wall
@@ -45,12 +37,7 @@ add_executable(ae
  linenumberpanel.cpp
  project.cpp
  searchpanel.cpp
- ${UI_MOCS}
- ${UI_OUTPUT}
 )
 
-target_link_libraries(ae
- ${QT_QTCORE_LIBRARY}
- ${QT_QTGUI_LIBRARY}
- clang
-)
+qt5_use_modules(ae Widgets)
+target_link_libraries(ae clang)
