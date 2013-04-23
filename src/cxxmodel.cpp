@@ -74,8 +74,12 @@ void AeCxxModel::setFileName(QString name) {
 
 	clangTranslationUnit_.lock();
 	fileName_ = name;
+	CXUnsavedFile thisfile;
+	thisfile.Filename = fileName_.toUtf8().constData();
+	thisfile.Contents = 0;//documentCopy.constData();
+	thisfile.Length = 0;//documentCopy.size();
 	clangTranslationUnit_() = clang_parseTranslationUnit(clangIndex_, name.toLocal8Bit().constData(),
-				(const char**)&args, 7, NULL, 0,
+				(const char**)&args, 7, &thisfile, 1,
 				CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|
 				CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 	clangTranslationUnit_.unlock();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.9)
 project(aristed)
 
 # You may need to set these relative to your clang installation
-set(ARCH_HEADERS "/usr/lib/clang/3.1/include" CACHE PATH "Path to architecture-specific headers")
+set(ARCH_HEADERS "/usr/lib/clang/3.2/include" CACHE PATH "Path to architecture-specific headers")
 set(CLANG_LIBRARY_PATH "/usr/lib/llvm" CACHE PATH "Path to clang shared library")
 set(CLANG_INCLUDE_DIR "/usr/include/clang" CACHE PATH "Path to clang headers")
 
