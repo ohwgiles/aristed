@@ -24,6 +24,7 @@ add_definitions(
  -Werror
 )
 
+qt5_wrap_ui(OUT_HEADERS mainwindow.ui filesearchdialog.ui)
 add_executable(ae
  main.cpp
  window.cpp
@@ -37,7 +38,8 @@ add_executable(ae
  linenumberpanel.cpp
  project.cpp
  searchpanel.cpp
+ ${OUT_HEADERS}
 )
-
 qt5_use_modules(ae Widgets)
+
 target_link_libraries(ae clang)
