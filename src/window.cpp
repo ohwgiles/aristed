@@ -152,7 +152,7 @@ void AeWindow::appendEditor(AeEditor* e) {
 	e->setFocus();
 }
 
-bool AeWindow::closeEditor(int tabindex) {
+bool AeWindow::confirmCloseEditor(int tabindex) {
 	AeEditor *e = (AeEditor*) m_tabs->widget(tabindex);
 
 	if(e->dirty()) {
@@ -183,18 +183,27 @@ bool AeWindow::closeEditor(int tabindex) {
 
 	}
 
-	AeProject* p = e->project();
-	p->editors_.removeOne(e);
-	if(p->editors_.length()==0) {
-		projects_.removeOne(p);
-		delete p;
-	}
-	delete m_tabs->widget(tabindex);
-	m_tabs->removeTab(tabindex);
-	return true;
+    return closeEditor(tabindex);
 }
 
-bool AeWindow::closeEditors(int except) {
+bool AeWindow::closeEditor(int tabindex) {
+    AeEditor *e = (AeEditor*) m_tabs->widget(tabindex);
+    ae_debug("closing editor " << e->filePath());
+
+    AeProject* p = e->project();
+    p->editors_.removeOne(e);
+    if(p->editors_.length()==0) {
+        ae_debug("project " << e->project()->displayName() << " has no more editors, deleting it");
+        projects_.removeOne(p);
+        delete p;
+    }
+    disconnect(e);
+    m_tabs->removeTab(tabindex);
+    delete e;
+    return true;
+}
+
+bool AeWindow::confirmCloseEditors(int except) {
 	int result = -1;
 	for(int i=m_tabs->count() - 1; i>=0; --i) {
 		AeEditor *e = (AeEditor*) m_tabs->widget(i);
@@ -231,8 +240,7 @@ bool AeWindow::closeEditors(int except) {
 			break;
 			}
 		}
-		delete m_tabs->widget(i);
-		m_tabs->removeTab(i);
+        closeEditor(i);
 	}
 	return m_tabs->count()==0;
 }
@@ -243,12 +251,12 @@ void AeWindow::handleDirtied(QWidget * w, bool dirty) {
 	ui->actionRevert_to_Saved->setEnabled(e->fileExists() && e->dirty());
 	ui->actionSave->setEnabled(dirty);
 	int index = m_tabs->indexOf(w);
-	ae_info("Setting on index " << index);
+    ae_info("Tab index " << index << " marked as dirty = " << dirty);
 	m_tabs->tabBar()->setTabTextColor(index, dirty? Qt::red : Qt::black);
 }
 
 void AeWindow::open(QString fileName) {
-	ae_info("Opening " << fileName.toUtf8().constData() << "?");
+    ae_info("Opening " << fileName.toUtf8().constData());
 	// first check to see if the file is already open. If so, just focus it.
 	for(int i=m_tabs->count()-1; i>=0; --i) {
 		AeEditor* e = (AeEditor*) m_tabs->widget(i);
@@ -280,7 +288,7 @@ void AeWindow::on_actionOpen_triggered() {
 }
 
 void AeWindow::closeEvent(QCloseEvent * e) {
-	if(closeEditors(-1))
+    if(confirmCloseEditors(-1))
 		e->accept();
 	else
 		e->ignore();
@@ -288,20 +296,6 @@ void AeWindow::closeEvent(QCloseEvent * e) {
 
 void AeWindow::on_actionExit_triggered() {
 	close();
-}
-
-bool AeWindow::save(int tabindex) {
-	AeEditor* e = (AeEditor*) m_tabs->widget(tabindex);
-	if(!e->saveFile()) {
-		QMessageBox::warning(this, "Error", "Could not save " + e->displayName());
-		return false;
-	}
-
-	// if we're here, all went well
-	m_tabs->tabBar()->setTabTextColor(tabindex, Qt::black);
-	m_tabs->setTabText(tabindex, e->displayName());
-	currentTabChanged(tabindex);
-	return true;
 }
 
 bool AeWindow::save(int tabindex, QString location) {
@@ -312,14 +306,21 @@ bool AeWindow::save(int tabindex, QString location) {
 	}
 	AeProject* p = AeProject::getProject(projects_, location);
 	if(p != e->project()) {
+        ae_debug("project was " << e->project()->displayName() << ", now " << p->displayName());
 		e->project()->editors_.removeOne(e);
-		if(e->project()->editors_.length() == 0)
+        if(e->project()->editors_.length() == 0) {
+            ae_debug("project " << e->project()->displayName() << " has no more editors, deleting it");
 			projects_.removeOne(e->project());
+            delete e->project();
+        }
 		e->setProject(p);
 		p->editors_.append(e);
 		if(!projects_.contains(p))
 			projects_.append(p);
 	}
+    // if it was a project file, reload the settings
+    if(location.endsWith(".aeproj"))
+        p->parseAeproj(location);
 	// if we're here, all went well
 	m_tabs->tabBar()->setTabTextColor(tabindex, Qt::black);
 	currentTabChanged(tabindex);
@@ -329,7 +330,7 @@ bool AeWindow::save(int tabindex, QString location) {
 bool AeWindow::on_actionSave_triggered() {
 	AeEditor* e = (AeEditor*) m_tabs->currentWidget();
 	if(e->fileExists())
-		return save(m_tabs->currentIndex());
+        return save(m_tabs->currentIndex(), e->filePath());
 	else
 		return on_actionSave_As_triggered();
 }
@@ -377,12 +378,12 @@ void AeWindow::on_actionRevert_to_Saved_triggered() {
 }
 
 void AeWindow::on_actionClose_triggered() {
-	closeEditor(m_tabs->currentIndex());
+    confirmCloseEditor(m_tabs->currentIndex());
 }
 
 void AeWindow::on_actionClose_Others_triggered()
 {
-	closeEditors(m_tabs->currentIndex());
+    confirmCloseEditors(m_tabs->currentIndex());
 }
 
 void AeWindow::on_actionShow_File_Manager_triggered()
@@ -408,6 +409,12 @@ void AeWindow::on_actionBuild_Run_triggered()
 	if(e->project()->build(ui->consoleWindow, true))
 		ui->console->show();
 }
+void AeWindow::keyPressEvent(QKeyEvent * e) {
+    if(e->key() == Qt::Key_Escape && ui->console->isVisible()) {
+        ui->console->hide();
+        e->accept();
+    }
+}
 
 void AeWindow::on_actionOpen_Resource_triggered()
 {
@@ -417,4 +424,29 @@ void AeWindow::on_actionOpen_Resource_triggered()
 		ae_info("User selected " << fsd->fileToOpen());
 		open(fsd->fileToOpen());
 	}
+}
+
+void AeWindow::on_actionConfigureProject_triggered()
+{
+    AeEditor* e = (AeEditor*) m_tabs->currentWidget();
+
+    if(!e->fileExists()) {
+        if(QMessageBox::question(this, "Unsaved file", "The file must be saved first. Save now?", QMessageBox::Yes, QMessageBox::No) == QMessageBox::Yes)
+            on_actionSave_triggered();
+        else return;
+    }
+
+    AeProject* p = e->project();
+    if(!p->projFileExists()) {
+        if(QMessageBox::question(this, "No project file", "No project file found. Create one?", QMessageBox::Yes, QMessageBox::No) == QMessageBox::No)
+            return;
+        p->setSourceDir(QFileDialog::getExistingDirectory(this, "Choose source directory", p->sourceDir().absolutePath()));
+        if(!p->projFileExists()) { // testing again in case user selected a wild directory that wasn't searched before
+            p->writeProjectFile();
+        }
+    }
+
+    if(p->projFileExists()) {
+        open(p->sourceDir().absoluteFilePath(".aeproj"));
+    }
 }

@@ -26,7 +26,7 @@ public:
 	bool fileExists() const { return fileExists_; }
 	bool openFile(QString filename);
 	bool saveFile() { return saveFile(filePath_); }
-	bool saveFile(QString filename);
+    bool saveFile(QString filename);
 
 	void setCxxModel();
 	AeCodeModel* model() const { return model_; }

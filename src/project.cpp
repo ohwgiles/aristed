@@ -81,8 +81,24 @@ public:
 	QString displayName() const { return "Unbound Project"; }
 	QDir sourceDir() const { return QDir::currentPath(); }
 	bool containsPath(const QString) const { return false; }
-
+    bool projFileExists() const { return false; }
 };
+
+bool AeProject::projFileExists() const {
+    QFileInfo fi(sourceDir_.absoluteFilePath(".aeproj"));
+    return fi.exists();
+}
+
+void AeProject::writeProjectFile() {
+    QSettings proj(sourceDir_.absoluteFilePath(".aeproj"), QSettings::IniFormat);
+    proj.setValue("project", projectName_);
+    proj.setValue("sourcedir", sourceDir_.absolutePath());
+    ae_debug("builddir: "<<buildDir().absolutePath());
+    proj.setValue("builddir", buildDir_.absolutePath());
+    proj.setValue("buildcmd", buildCmd_);
+    proj.setValue("runcmd", runCmd_);
+    proj.sync();
+}
 
 AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileName) {
 	// The filename may be empty if this is a new unsaved file
@@ -108,8 +124,15 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 
 	// No existing project suits. Attempt to open a new one.
 	AeProject* p = new AeProject();
-	// if nothing better comes up, this file's directory is the source dir
+    // if nothing better comes up, this file's directory is the source dir and build dir
 	p->setSourceDir(guessedSourceDir);
+    p->buildDir_ = guessedSourceDir;
+    // special case: this file is itself the project file, but no other editors from this project are open.
+    if(fi.baseName() == ".aeproj") {
+        ae_debug("getProject of .aeproj");
+        p->parseAeproj(fileName);
+        return p;
+    }
 
 	// first scan upwards looking for CMakeCache.txt
 	QDir fileDir(guessedSourceDir);
@@ -139,29 +162,24 @@ AeProject* AeProject::getProject(const QList<AeProject*> projects, QString fileN
 		fileDir.cdUp();
 	}
 
-//	// if still not found, try CMakeLists and prompt for .aeproj creation
-//	fileDir = fi.absoluteDir();
-//	while(!fileDir.isRoot()) {
-//		QFileInfo cmakelists(fileDir.absoluteFilePath("CMakeLists.txt"));
-//		if(cmakelists.exists()) {
-//			QString buildDir = QFileDialog::getExistingDirectory(0, "A CMakeLists.txt file was found. Please select the directory containing CMakeCache.txt to help aristed index code", fileDir);
-//			if(!buildDir.isEmpty()) {
-//				// todo check cmakecache actually exists here
-//				QDir buildPath(buildDir);
-//				AeProject* p = new AeProject();
-//				p->parseCmakelists(buildPath.absoluteFilePath("CMakeCache.txt"));
-//				// todo ask the user to store changes in .aeproj
-//				return p;
-//			}
-//		}
-//		fileDir.cdUp();
-//	}
+    // if still not found, try CMakeLists. It's not enough to set project info, but it will give us a source dir
+    fileDir = fi.absoluteDir();
+    while(!fileDir.isRoot()) {
+        QFileInfo cmakelists(fileDir.absoluteFilePath("CMakeLists.txt"));
+        if(cmakelists.exists()) {
+            ae_debug("Found CMakeLists.txt in " << fileDir.absolutePath());
+            // TODO: potentially extract some info from this file
+            p->setSourceDir(fileDir);
+            break;
+        }
+        fileDir.cdUp();
+    }
 
 	// no project found. Assume the current dir.
 	return p;
 }
 bool AeProject::build(QTextBrowser* displayWidget, bool andRun) {
-	if(process_ && process_->isOpen()) {
+    if(process_ && !process_->atEnd()) {
 		int result = QMessageBox::question(0, "A process is already running", "Currently waiting for ``"+lastLaunchCmd_+"'' to complete execution. Do you want to kill it?", QMessageBox::Yes | QMessageBox::No);
 		if(result == QMessageBox::Yes) {
 			// todo properly
@@ -179,6 +197,7 @@ bool AeProject::build(QTextBrowser* displayWidget, bool andRun) {
 	outputWindow_ = displayWidget;
 	connect(process_, SIGNAL(readyRead()), this, SLOT(processOutput()));
 	connect(process_, SIGNAL(finished(int)), this, SLOT(processEnded(int)));
+    connect(process_, SIGNAL(error(QProcess::ProcessError)), this, SLOT(processError(QProcess::ProcessError)));
 
 	process_->setWorkingDirectory(buildDir_.absolutePath());
 	outputWindow_->insertPlainText("Executing " + buildCmd_ + " from " + buildDir_.absolutePath() + "\n");
@@ -202,5 +221,10 @@ void AeProject::processEnded(int exitCode) {
 		lastLaunchCmd_ = runCmd_;
 		process_->start(lastLaunchCmd_);
 	}
+}
+
+void AeProject::processError(QProcess::ProcessError e) {
+    outputWindow_->insertPlainText("Error " + QString::number((int)e) + "\n");
+
 }
 

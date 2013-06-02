@@ -1,5 +1,6 @@
 #include <QRegExp>
 #include <QKeyEvent>
+#include <QDirIterator>
 #include "project.hpp"
 #include "filesearchdialog.hpp"
 #include "ui_filesearchdialog.h"
@@ -9,7 +10,7 @@
 
 
 QString AeFileSearchDialog::fileToOpen() const {
-	return model_.data(ui->resultFiles->currentIndex(), Qt::DisplayRole).toString();
+    return model_.data(ui->resultFiles->currentIndex(), Qt::DisplayRole).toString();
 }
 
 bool AeFileSearchDialog::eventFilter(QObject * o, QEvent * event) {
@@ -33,8 +34,13 @@ AeFileSearchDialog::AeFileSearchDialog(const AeProject *project, QWidget *parent
 	//model_(new FilePathStringModel(ui->resourcePath))
 {
 	ui->setupUi(this);
-	QDir sourceDir = project->sourceDir();
-	items_ = sourceDir.entryList();
+    QDirIterator iterator(project->sourceDir().absolutePath(), QDirIterator::Subdirectories);
+    while (iterator.hasNext()) {
+       iterator.next();
+       if (!iterator.fileInfo().isDir()) {
+          items_.append(iterator.filePath());
+       }
+    }
 	ui->resultFiles->setModel(&model_);
 	ui->resultFiles->setFocusProxy(ui->patternInput);
 	ui->patternInput->installEventFilter(this);
@@ -48,8 +54,7 @@ AeFileSearchDialog::~AeFileSearchDialog()
 void AeFileSearchDialog::resultSelected(QModelIndex current, QModelIndex ){
 	QString file(model_.data(current,Qt::DisplayRole).toString());
 	ae_debug("Selected item " << file);
-	QDir path(file);
-	ui->resourcePath->setText(path.absolutePath());
+    ui->resourcePath->setText(file);
 }
 
 void AeFileSearchDialog::on_patternInput_textEdited(const QString &txt)

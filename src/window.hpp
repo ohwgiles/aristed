@@ -35,9 +35,13 @@ private:
 	bool save(int tabindex);
 	bool save(int tabindex, QString location);
 	void open(QString file);
-	bool closeEditor(int tabindex);
-	bool closeEditors(int except);
+    bool confirmCloseEditor(int tabindex);
+    bool confirmCloseEditors(int except);
+    bool closeEditor(int except);
+
 	void closeEvent(QCloseEvent *);
+
+    void keyPressEvent(QKeyEvent *);
 private slots:
 	void on_actionNew_triggered();
 	void on_actionOpen_triggered();
@@ -61,6 +65,8 @@ private slots:
 	void on_actionBuild_Run_triggered();
 
 	void on_actionOpen_Resource_triggered();
+
+    void on_actionConfigureProject_triggered();
 
 private:
 	TabWidget* m_tabs;

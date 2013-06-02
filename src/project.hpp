@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QList>
 #include <QFile>
+#include <QProcess>
 
 class AeEditor;
 class QProcess;
@@ -26,9 +27,13 @@ public:
 
 	bool build(QTextBrowser* displayWidget, bool andRun);
 
+    virtual bool projFileExists() const;
+
+    void setSourceDir(QDir sourceDir);
+
+    void writeProjectFile();
+    void parseAeproj(const QString projFile);
 private:
-	void setSourceDir(QDir sourceDir);
-	void parseAeproj(const QString projFile);
 	bool parseCmakecache(const QString cacheFile);
 
 	virtual bool containsPath(const QString path) const;
@@ -45,6 +50,7 @@ private:
 private slots:
 	void processOutput();
 	void processEnded(int exitCode);
+    void processError(QProcess::ProcessError e);
 };
 
 
