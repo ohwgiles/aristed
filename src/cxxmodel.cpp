@@ -63,14 +63,13 @@ void AeCxxModel::setFileName(QString name) {
 
 	args[0] = "-x";
 	args[1] = "c++";
-	args[2] = "-I" ARCH_HEADERS;
+    args[2] = "-I"  ARCH_HEADERS;
 	args[3] = "-pedantic";
-	args[4] = "-Wall";
-	args[5] = "-Wextra";
-	args[6] = strdup(QString(QString("-I")+fi.dir().path()).toUtf8().constData());
+    args[4] = "-Weverything";
+    args[5] = strdup(QString(QString("-I")+fi.dir().path()).toUtf8().constData());
 	ae_info(name);
 	ae_info(args[2]);
-	ae_info(args[6]);
+    ae_info(args[5]);
 
 	clangTranslationUnit_.lock();
 	fileName_ = name;
@@ -79,22 +78,31 @@ void AeCxxModel::setFileName(QString name) {
 	thisfile.Contents = 0;//documentCopy.constData();
 	thisfile.Length = 0;//documentCopy.size();
 	clangTranslationUnit_() = clang_parseTranslationUnit(clangIndex_, name.toLocal8Bit().constData(),
-				(const char**)&args, 7, &thisfile, 1,
+                (const char**)&args, 6, &thisfile, 1,
 				CXTranslationUnit_PrecompiledPreamble|CXTranslationUnit_CacheCompletionResults|
 				CXTranslationUnit_DetailedPreprocessingRecord|CXTranslationUnit_Incomplete);
 	clangTranslationUnit_.unlock();
 
-	free((void*)args[6]);
+    free((void*)args[5]);
 }
 
 
 QString AeCxxModel::getTipAt(unsigned int row, unsigned int col) {
 	codeAnnotations_.scopedLock();
-	for(int i=0, N=codeAnnotations_()[row].size(); i!=N; ++i) {
-		const Annotation& ds = codeAnnotations_()[row][i];
-		if(col >= ds.start && col <= ds.start + ds.length)
-			return ds.message;
-	}
+//	for(int i=0, N=codeAnnotations_()[row].size(); i!=N; ++i) {
+//		const Annotation& ds = codeAnnotations_()[row][i];
+//        foreach(Annotation::Rng r, ds.ranges)
+//            if(col >= r.start && col <= r.start + r.length)
+//                return ds.message;
+//	}
+    ae_info("get tip at " << row << ":" << col);
+    for(int i=0; i<(*newStyles_)[row].size(); ++i) {
+        const AeCodeDecoration::Extents& e = (*newStyles_)[row][i].extents();
+        if(col >= e.start && col <= e.start + e.length) {
+            ae_info("Found annotation: " << (*newStyles_)[row][i].annotation_);
+            return (*newStyles_)[row][i].annotation_;
+        }
+    }
 	return "";
 }
 
@@ -185,6 +193,18 @@ void AeCxxModel::prepareCompletions(QTextDocument* doc) {
 }
 
 void AeCxxModel::cursorPositionChanged(QTextDocument* doc, QTextCursor cur) {
+    unsigned col = cur.columnNumber();
+    unsigned row = cur.blockNumber();
+    ae_info("get tip at " << row << ":" << col);
+    for(int i=0; i<(*newStyles_)[row].size(); ++i) {
+        const AeCodeDecoration::Extents& e = (*newStyles_)[row][i].extents();
+        if(col >= e.start && col <= e.start + e.length) {
+            ae_info("Found annotation: " << (*newStyles_)[row][i].annotation_);
+            break;
+        }
+    }
+
+
 	// Whenever the cursor is moved, track backwards to find the last
 	// non-alphanumeric character. This chunk is the code completion prefix,
 	// needed to filter results when the user requests a code completion
@@ -245,6 +265,70 @@ void AeCxxModel::handleTextChanged(QTextDocument *document, int position, int re
 	QMetaObject::invokeMethod(&semanticsBuilder_, "launch", Q_ARG(char, threadSentinel));
 }
 
+struct CodePos {
+    unsigned int line;
+   unsigned int col;
+    unsigned int len;
+};
+
+static void doOverSourceRange(const CXSourceRange& range, const CXUnsavedFile& document, std::function<void (unsigned line, unsigned column, unsigned length)> fn) {
+    unsigned int fl, fc, fo, tl, tc, to;
+    CXSourceLocation locFrom = clang_getRangeStart(range);
+    clang_getSpellingLocation(locFrom,NULL,&fl,&fc,&fo);
+    CXSourceLocation locTo = clang_getRangeEnd(range);
+    clang_getSpellingLocation(locTo, NULL, &tl,&tc,&to);
+    if(fl == tl)
+        fn(fl-1, fc-1, tc-fc);
+    else {
+        unsigned p = fc;
+        while(fl<tl) {
+            fo++;
+            p++;
+            if(document.Contents[fo] == '\n') {
+                fn(fl-1,fc-1,p-fc);
+                fc = 1;
+                fl++;
+                p = 0;
+            }
+        }
+        fn(fl-1,0,tc);
+    }
+}
+
+
+// this function assumes we have already confirmed the diagnostic indeed belongs to this file
+static void markDiagnosticLocations(const CXDiagnostic& diag, const CXUnsavedFile& file, const CXTranslationUnit& tu, QVector<CodePos>& output) {
+    CXSourceLocation loc = clang_getDiagnosticLocation(diag);
+    unsigned line, col, offset; // these variables will contain the DISPLAY location of the error
+    clang_getSpellingLocation(loc,NULL,&line,&col,&offset);
+    ae_info("diagnostic incurred locally at " << line << ":" << col);
+    // if the diagnostic is at a non-printable location, e.g. no \n at EOF, back it up until it is
+    // todo this is a bit fragile.
+    unsigned p = offset + 1;
+    while(offset > 0 && col > 1 && (offset >= file.Length || file.Contents[offset] == '\n')) { col--; offset--; }
+    // calculate the length of the mark
+    CXCursorKind ck = clang_getCursorKind(clang_getCursor(tu, loc));
+    if(ck >= CXCursor_FirstPreprocessing && ck <= CXCursor_LastPreprocessing) {
+        // just mark the whole line, looks better for preproc errors
+        while(offset > 0 && file.Contents[offset] != '\n') offset--;
+        while(p < file.Length && file.Contents[p] != '\n') p++;
+        output.append({line-1,0,p-offset});
+        ae_debug("highlighting line at " << line << ", 1:" << p);
+    } else {
+        // guess the token length by scooping up all alphanumerics
+        while(p < file.Length && isalnum(file.Contents[p])) p++;
+        ae_debug("highlighting from " << col << " to " << p-offset);
+        output.append({line-1,col-1,p-offset});
+    }
+    // each diagnostic may have supplementary segments to highlight
+    // loop through each of them and apply the same process
+    for(unsigned i=0, n=clang_getDiagnosticNumRanges(diag); i!=n; ++i) {
+        CXSourceRange r = clang_getDiagnosticRange(diag, i);
+        doOverSourceRange(r,file,[&](unsigned line,unsigned col,unsigned len){output.append({line,col,len});});
+    }
+
+
+}
 
 // This function is run in the background thread. It must be careful when
 // accessing class members it shares with the main thread
@@ -282,78 +366,105 @@ void AeCxxModel::reparseDocument(char s) {
 	codeAnnotations_().clear();
 	{
 		for(unsigned i=0, n = clang_getNumDiagnostics(clangTranslationUnit_()); i!=n; ++i) {
-			CXDiagnostic diag = clang_getDiagnostic(clangTranslationUnit_(), i);
-			CXDiagnosticSeverity sev = clang_getDiagnosticSeverity(diag);
-			CXSourceLocation loc = clang_getDiagnosticLocation(diag);
-			CXString str = clang_formatDiagnostic(diag, clang_defaultDiagnosticDisplayOptions());
-			unsigned line, col, offset;
-			clang_getSpellingLocation(loc,NULL,&line,&col,&offset);
-			ae_info(clang_getCString(str));
-			unsigned len = 1;
-			while(offset+len < (unsigned)documentCopy.length() && isalnum(documentCopy.at(offset+len))) len++;
-			if(sev == CXDiagnostic_Error) {
-				(*newStyles_)[line-1].append(AeCodeDecoration(clang_getCString(str), colourScheme_->error(), col-1, len));
-				Annotation a = {col-1,len,clang_getCString(str)};
-				codeAnnotations_()[line-1].append(a);
-			}
-			if(sev == CXDiagnostic_Warning) {
-				(*newStyles_)[line-1].append(AeCodeDecoration(clang_getCString(str), colourScheme_->warning(), col-1, len));
-				Annotation a = {col-1,len,clang_getCString(str)};
-				codeAnnotations_()[line-1].append(a);
+            CXDiagnostic rootDiagnostic = clang_getDiagnostic(clangTranslationUnit_(), i);
+            QString diagnosticMessage; // the final diagnostic mesasge, built from many sub-diagnostics
 
-			}
-			clang_disposeString(str);
+            QVector<CodePos> errorLocations;
+            // if the error is caused locally, the root diagnostic will point to this file. if it is in
+            // another file, we have to check each of the child diagonstics. Since it is most likely to
+            // be in the main file, first tackle that possibility:
+            CXSourceLocation loc = clang_getDiagnosticLocation(rootDiagnostic);
+            CXFile file;
+            clang_getSpellingLocation(loc,&file,NULL,NULL,NULL);
+            // todo use CXFileUniqueID when it makes it into distro's clang
+            CXString filename = clang_getFileName(file);
+            // if the diagnostic is found in the local file
+            bool localLocationFound = (strcmp(clang_getCString(filename), fileName_.toLocal8Bit().constData()) == 0);
+            clang_disposeString(filename);
+
+            if(localLocationFound)
+                markDiagnosticLocations(rootDiagnostic, thisfile, clangTranslationUnit_(), errorLocations);
+            else {
+                // search through the list of child diagnostics
+                CXDiagnosticSet childDiags = clang_getChildDiagnostics(rootDiagnostic);
+
+                for(unsigned i=0, n=clang_getNumDiagnosticsInSet(childDiags); i!=n; ++i) {
+                    CXDiagnostic childDiagnostic = clang_getDiagnosticInSet(childDiags, i);
+                    // add the child message to the final display diagnostic
+                    CXString str = clang_formatDiagnostic(childDiagnostic, clang_defaultDiagnosticDisplayOptions());
+                    diagnosticMessage.append(clang_getCString(str));
+                    diagnosticMessage.append('\n');
+                    clang_disposeString(str);
+
+                    // if we still haven't found the local error location, check if this child diagnostic matches it
+                    if(!localLocationFound) {
+                        // reusing vars declared earlier
+                        CXSourceLocation loc = clang_getDiagnosticLocation(childDiagnostic);
+                        clang_getSpellingLocation(loc,&file,NULL,NULL,NULL);
+                        // todo use CXFileUniqueID when it makes it into distro's clang
+                        CXString filename = clang_getFileName(file);
+                        localLocationFound = (strcmp(clang_getCString(filename), fileName_.toLocal8Bit().constData()) == 0);
+                        clang_disposeString(filename);
+                        if(localLocationFound)
+                            markDiagnosticLocations(childDiagnostic, thisfile, clangTranslationUnit_(), errorLocations);
+
+
+                    }
+                }
+
+            }
+
+
+
+            { // append the root diagnostic message
+                CXString str = clang_formatDiagnostic(rootDiagnostic, clang_defaultDiagnosticDisplayOptions());
+                diagnosticMessage.append(clang_getCString(str));
+                clang_disposeString(str);
+            }
+
+            CXDiagnosticSeverity sev = clang_getDiagnosticSeverity(rootDiagnostic);
+            QColor underlineColour;
+            if(sev <= CXDiagnostic_Warning)
+                underlineColour = colourScheme_->warning();
+            else
+                underlineColour = colourScheme_->error();
+            //ae_info("num ranges: " << an.ranges.count());
+            foreach(const CodePos& p, errorLocations) {
+                ae_debug("appending diagnostic style at " << p.line << ":" << p.col);
+                (*newStyles_)[p.line].append(AeCodeDecoration(diagnosticMessage, underlineColour, p.col, p.len));
+            }
+            ae_info(diagnosticMessage);
+            //an.message = diagnosticMessage;
+            //codeAnnotations_()[line-1].append(an);
+
 		}
 	}
 	codeAnnotations_.unlock();
 
 	// And now the syntax highlighting
 	{
-		struct TokenRange {
-			int startCol;
-			int startLine;
-			int endCol;
-			int endLine;
-		};
+        auto StylingHelperFunc = [&](CXSourceRange r, QColor colour, AeCodeDecoration::Emphasis emp){
+            doOverSourceRange(r, thisfile, [&](unsigned line, unsigned col, unsigned len){
+                (*newStyles_)[line].append(AeCodeDecoration(colour, emp, col, len));
+            });
+        };
 
-		// A multi-line highlighting helper, rather than having to set up
-		// another member function (far too many already)
-		struct Helper {
-			static void appendStyle(StyleMap& map, QColor c,
-							AeCodeDecoration::Emphasis s, const TokenRange& rng) {
-				if(rng.startLine == rng.endLine) // just one line
-					map[rng.startLine-1].append(AeCodeDecoration(c, s, rng.startCol-1, rng.endCol-rng.startCol));
-				else { // multiple lines
-					int line = rng.startLine -1;
-					// first line
-					map[line].append(AeCodeDecoration(c, s, rng.startCol-1, -1));
-					// middle lines
-					while(++line < rng.endLine-1)
-						map[line].append(AeCodeDecoration(c, s, 0, -1));
-					// end line
-					map[line].append(AeCodeDecoration(c, s, 0, rng.endCol-1));
-				}
-			}
-		};
-
-		TokenRange range;
 		// loop through all tokens Clang found
 		for(unsigned i=0; i<numtokens; ++i) {
-			//QTextCharFormat tcf;
-			//QColor colour;
-			CXCursorKind k =  clang_getCursorKind(cursors[i]);
-			CXSourceRange r = clang_getTokenExtent(clangTranslationUnit_(), tokens[i]);
-
-			clang_getSpellingLocation(clang_getRangeStart(r),NULL,(unsigned*)&range.startLine,(unsigned*)&range.startCol,NULL);
-			clang_getSpellingLocation(clang_getRangeEnd(r),NULL,(unsigned*)&range.endLine,(unsigned*)&range.endCol,NULL);
-			switch(clang_getTokenKind(tokens[i])) {
+            //QTextCharFormat tcf;
+            //QColor colour;
+            CXCursorKind k =  clang_getCursorKind(cursors[i]);
+            CXSourceRange r = clang_getTokenExtent(clangTranslationUnit_(), tokens[i]);
+            switch(clang_getTokenKind(tokens[i])) {
 			case CXToken_Comment:
-				Helper::appendStyle(*newStyles_, colourScheme_->comment(), AeCodeDecoration::PLAIN, range);
+                //StylingHelperFunc(r, colourScheme_->comment(), AeCodeDecoration::PLAIN);
+                StylingHelperFunc(r, colourScheme_->comment(), AeCodeDecoration::PLAIN);
 				break;
 			case CXToken_Punctuation:
 				break;
 			case CXToken_Keyword:
-				Helper::appendStyle(*newStyles_, colourScheme_->keyword(), AeCodeDecoration::PLAIN, range);
+                //StylingHelperFunc(r, colourScheme_->keyword(), AeCodeDecoration::PLAIN);
+                StylingHelperFunc(r, colourScheme_->keyword(), AeCodeDecoration::PLAIN);
 				break;
 
 			case CXToken_Identifier:
@@ -364,11 +475,11 @@ void AeCxxModel::reparseDocument(char s) {
 					// todo backtrack so we also highlight the hash
 
 				case  CXCursor_MacroDefinition:
-					Helper::appendStyle(*newStyles_, colourScheme_->preproc(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->preproc(), AeCodeDecoration::PLAIN);
 
 					break;
 				case CXCursor_MacroExpansion:
-					Helper::appendStyle(*newStyles_, colourScheme_->preproc(), AeCodeDecoration::BOLD, range);
+                    StylingHelperFunc(r, colourScheme_->preproc(), AeCodeDecoration::BOLD);
 					break;
 				// Declarations
 				case CXCursor_StructDecl:
@@ -377,44 +488,44 @@ void AeCxxModel::reparseDocument(char s) {
 				case CXCursor_EnumDecl:
 				case CXCursor_TypedefDecl:
 				case CXCursor_ClassTemplate:
-					Helper::appendStyle(*newStyles_, colourScheme_->structure(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->structure(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_FieldDecl:
-					Helper::appendStyle(*newStyles_, colourScheme_->field(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->field(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_EnumConstantDecl:
-					Helper::appendStyle(*newStyles_, colourScheme_->enumconst(), AeCodeDecoration::ITALIC, range);
+                    StylingHelperFunc(r, colourScheme_->enumconst(), AeCodeDecoration::ITALIC);
 					break;
 				case CXCursor_FunctionDecl:
-					Helper::appendStyle(*newStyles_, colourScheme_->func(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->func(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_VarDecl:
-					Helper::appendStyle(*newStyles_, colourScheme_->var(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->var(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_ParmDecl:
-					Helper::appendStyle(*newStyles_, colourScheme_->param(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->param(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_LabelStmt:
-					Helper::appendStyle(*newStyles_, colourScheme_->label(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->label(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_CXXMethod:
 				case CXCursor_Constructor:
 				case CXCursor_Destructor:
 				case CXCursor_ConversionFunction: // overriding cast operator
 
-					Helper::appendStyle(*newStyles_, colourScheme_->method(),
-							 clang_CXXMethod_isVirtual(cursors[i]) ? AeCodeDecoration::ITALIC : AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->method(),
+                             clang_CXXMethod_isVirtual(cursors[i]) ? AeCodeDecoration::ITALIC : AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_Namespace:
 				case CXCursor_NamespaceAlias:
-					Helper::appendStyle(*newStyles_, colourScheme_->nspace(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->nspace(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_TemplateTypeParameter:
 				case CXCursor_NonTypeTemplateParameter:
 				case CXCursor_TemplateTemplateParameter:
 				case CXCursor_FunctionTemplate: // TODO where is this used?
 				case CXCursor_ClassTemplatePartialSpecialization: // TODO where is this used?
-					Helper::appendStyle(*newStyles_, colourScheme_->typeParam(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->typeParam(), AeCodeDecoration::PLAIN);
 					break;
 				// References
 				case CXCursor_ObjCSuperClassRef:
@@ -423,39 +534,39 @@ void AeCxxModel::reparseDocument(char s) {
 				case CXCursor_TypeRef:
 				case CXCursor_CXXBaseSpecifier:
 				case CXCursor_TemplateRef:
-					Helper::appendStyle(*newStyles_, colourScheme_->structure(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->structure(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_NamespaceRef:
-					Helper::appendStyle(*newStyles_, colourScheme_->nspace(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->nspace(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_MemberRef: // TODO where is this used?
 				case CXCursor_VariableRef:
-					Helper::appendStyle(*newStyles_, colourScheme_->field(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->field(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_LabelRef:
-					Helper::appendStyle(*newStyles_, colourScheme_->label(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->label(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_OverloadedDeclRef:
 				case CXCursor_CallExpr:
-					Helper::appendStyle(*newStyles_, colourScheme_->func(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->func(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_DeclRefExpr:
 					switch(clang_getCursorKind(clang_getCursorReferenced(cursors[i]))) {
 					case CXCursor_EnumConstantDecl:
-						Helper::appendStyle(*newStyles_, colourScheme_->enumconst(), AeCodeDecoration::ITALIC, range);
+                        StylingHelperFunc(r, colourScheme_->enumconst(), AeCodeDecoration::ITALIC);
 						break;
 					case CXCursor_FunctionDecl:
-						Helper::appendStyle(*newStyles_, colourScheme_->func(), AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->func(), AeCodeDecoration::PLAIN);
 						break;
 					case CXCursor_VarDecl:
 						// todo it would be nice to make global variable references bold
-						Helper::appendStyle(*newStyles_, colourScheme_->var(),  AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->var(),  AeCodeDecoration::PLAIN);
 						break;
 					case CXCursor_ParmDecl:
-						Helper::appendStyle(*newStyles_, colourScheme_->param(), AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->param(), AeCodeDecoration::PLAIN);
 						break;
 					case CXCursor_CXXMethod:
-						Helper::appendStyle(*newStyles_, colourScheme_->method(), AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->method(), AeCodeDecoration::PLAIN);
 						break;
 
 					default:
@@ -469,10 +580,10 @@ void AeCxxModel::reparseDocument(char s) {
 					case CXCursor_Constructor:
 					case CXCursor_Destructor:
 					case CXCursor_ConversionFunction: // overriding cast operator
-						Helper::appendStyle(*newStyles_, colourScheme_->method(), clang_CXXMethod_isVirtual(clang_getCursorReferenced(cursors[i])) ? AeCodeDecoration::ITALIC : AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->method(), clang_CXXMethod_isVirtual(clang_getCursorReferenced(cursors[i])) ? AeCodeDecoration::ITALIC : AeCodeDecoration::PLAIN);
 						break;
 					case CXCursor_FieldDecl:
-						Helper::appendStyle(*newStyles_, colourScheme_->field(), AeCodeDecoration::PLAIN, range);
+                        StylingHelperFunc(r, colourScheme_->field(), AeCodeDecoration::PLAIN);
 						break;
 					default:
 						ae_error("Unable to colour type " << clang_getCursorKind(clang_getCursorReferenced(cursors[i])));
@@ -498,13 +609,13 @@ void AeCxxModel::reparseDocument(char s) {
 				case CXCursor_IntegerLiteral:
 				case CXCursor_FloatingLiteral:
 				case CXCursor_ImaginaryLiteral:
-					Helper::appendStyle(*newStyles_, colourScheme_->numericconst(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->numericconst(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_StringLiteral:
-					Helper::appendStyle(*newStyles_, colourScheme_->string(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->string(), AeCodeDecoration::PLAIN);
 					break;
 				case CXCursor_CharacterLiteral:
-					Helper::appendStyle(*newStyles_, colourScheme_->charliteral(), AeCodeDecoration::PLAIN, range);
+                    StylingHelperFunc(r, colourScheme_->charliteral(), AeCodeDecoration::PLAIN);
 					break;
 				default:
 					break;

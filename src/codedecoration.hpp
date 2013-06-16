@@ -7,8 +7,8 @@
 class AeCodeDecoration {
 public:
 	struct Extents {
-		int start;
-		int length;
+        unsigned int start;
+        unsigned int length;
 	};
 	enum Emphasis { PLAIN = 0, BOLD=1, ITALIC=2 };
 	AeCodeDecoration() {}
@@ -18,10 +18,10 @@ public:
 	Extents extents() const { return extents_; }
 	const QTextCharFormat& textCharFormat() const { return textCharFormat_; }
 
+    QString annotation_;
 private:
 	QTextCharFormat textCharFormat_;
 	Extents extents_;
-	QString annotation_;
 };
 
 #include <QVector>

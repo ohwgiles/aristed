@@ -13,7 +13,7 @@ AeHighlighter::AeHighlighter(QPlainTextEdit* e) :
 	this->setDocument(e->document());
 }
 
-void AeHighlighter::blockModified(QTextBlock block, int relativePos, int added, int removed) {
+void AeHighlighter::blockModified(QTextBlock block, unsigned column, unsigned added, unsigned removed) {
 	// We have to lock the mutex since a background thread may be
 	// attempting to update the StyleVector pointer
 	mutex_.lock();
@@ -22,11 +22,11 @@ void AeHighlighter::blockModified(QTextBlock block, int relativePos, int added, 
 		AeCodeDecoration::Extents extents = ts.extents();
 		// if the highlight begins after our cursor position, advance
 		// or subtract it by the amount of characters changed
-		if(extents.start >= relativePos)
+        if(extents.start >= column)
 			extents.start += added - removed;
 		// if the highlight ends before our cursor position,
 		// leave it unchanged
-		else if(extents.start + extents.length <= relativePos)
+        else if(extents.start + extents.length <= column)
 			{}
 		// otherwise, we're in the middle of it. extend it. The normal
 		// highlighting algorithm will correct this later.
@@ -48,12 +48,14 @@ void AeHighlighter::updateStyles(StyleMap *styleVector) {
 	rehighlight();
 }
 
-void AeHighlighter::highlightBlock(const QString &t) {
+void AeHighlighter::highlightBlock(const QString & t) {
 	mutex_.lock();
 
 	const int blockNumber = currentBlock().blockNumber();
 	if(blockNumber < 0) return;
 	const StyleVector& v = styles_->value(blockNumber);
+    (void)t;
+/*
 	for(int i=0, N=v.count(); i!=N; ++i) {
 		const AeCodeDecoration& cd = v.at(i);
 		QTextCharFormat f = cd.textCharFormat();
@@ -63,8 +65,34 @@ void AeHighlighter::highlightBlock(const QString &t) {
 			else if(e.start == v.at(j).extents().start && e.length == v.at(j).extents().length)
 				f.merge(v.at(j).textCharFormat());
 		}
+        if(cd.extents().length == -1) {
+            ae_info("extents -1 at " << t);
+        }
 		setFormat(cd.extents().start, cd.extents().length == -1 ? t.length() : cd.extents().length, f);
-	}
+    }*/
+
+    unsigned from=0, to;
+    bool done;
+    do {
+        done= true;
+        to = currentBlock().length();
+        QTextCharFormat f;
+        for(int i=0;i<v.count();++i) {
+            const AeCodeDecoration&cd =v.at(i);
+            AeCodeDecoration::Extents e = cd.extents();
+            if(e.start+e.length > (unsigned)currentBlock().length()) continue;
+            if(from < e.start) {
+                done = false;
+                if(to > e.start) to = e.start;
+            } else if(from < e.start + e.length) {
+                done = false;
+                if(to > e.start + e.length) to = e.start + e.length;
+                f.merge(cd.textCharFormat());
+            }
+        }
+        setFormat(from, to - from, f);
+        from = to;
+    } while(!done);
 
 	mutex_.unlock();
 }

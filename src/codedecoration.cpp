@@ -12,7 +12,7 @@ AeCodeDecoration::AeCodeDecoration(QColor colour, Emphasis emphasis, int start, 
 AeCodeDecoration::AeCodeDecoration(QString message, QColor underline, int start, int length) {
 	annotation_ = message;
 	textCharFormat_.setUnderlineColor(underline);
-	textCharFormat_.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
+    textCharFormat_.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 	extents_.start = start;
 	extents_.length = length;
 

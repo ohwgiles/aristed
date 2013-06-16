@@ -33,7 +33,7 @@ AeEditor::AeEditor(QWidget *parent) :
 	opts.setFlags(QTextOption::ShowTabsAndSpaces);
 	document()->setDefaultTextOption(opts);
 
-	setFont(QFont("Deja Vu Sans Mono", 9));
+    setFont(QFont("Monaco", 9));
 	setTabChangesFocus(false);
 	setUndoRedoEnabled(true);
 	setLineWrapMode(WidgetWidth);
@@ -273,7 +273,10 @@ void AeEditor::keyPressEvent(QKeyEvent *e) {
 
 bool AeEditor::event(QEvent *e) {
 	if (e->type() == QEvent::ToolTip) {
-		QPoint p = viewport()->mapFromGlobal(QCursor::pos());
+        QHelpEvent* he = (QHelpEvent*) e;
+
+        //QPoint p = viewport()->mapFromGlobal(QCursor::pos());
+        QPoint p = viewport()->mapFromGlobal(he->pos());
 		QTextCursor tc = cursorForPosition(p);
 		int col = tc.columnNumber();
 		int row = tc.blockNumber();

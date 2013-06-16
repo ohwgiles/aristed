@@ -74,8 +74,11 @@ private:
 	void findCursorInfo(char s);
 
 	struct Annotation {
-		unsigned int start;
-		unsigned int length;
+        struct Rng {
+            unsigned int start;
+            unsigned int length;
+        };
+        QVector<Rng> ranges;
 		QString message;
 	};
 

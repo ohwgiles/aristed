@@ -94,6 +94,7 @@ void AeWindow::on_actionNew_triggered() {
 }
 
 void AeWindow::insertRubbish(AeEditor *e) {
+   // e->insertPlainText("//testcomment\n"); return;
 	e->insertPlainText(
 "/* This is sample\n"
 "C++ code */ \n"
