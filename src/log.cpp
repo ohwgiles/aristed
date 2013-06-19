@@ -25,32 +25,13 @@
 	loglevel==_Log::INFO  ? COLOUR_GREEN :\
 	loglevel==_Log::ERROR ? COLOUR_RED : 0)
 
-namespace {
-
-class LogFifo {
-public:
-	static std::fstream* stream;
-	LogFifo() {
-		unlink("/tmp/aristed.log");
-		mkfifo("/tmp/aristed.log", 0600);
-		stream = new std::fstream("/tmp/aristed.log");
-	}
-	~LogFifo() {
-		delete stream;
-	}
-};
-
-std::fstream* LogFifo::stream;
-LogFifo __static_logfifo;
-
-}
 
 _Log::~_Log() {
 #ifdef NDEBUG
 	// only called for errors > ERROR
 	std::cout << "Error: " << str() << std::endl;
 #else
-	(*LogFifo::stream) << "[" << COLOR(lvl) << LOGSTR(lvl) << COLOUR_NORMAL << "] " << fn << ":" << line << " " << str() << std::endl;
+    std::cout << "[" << COLOR(lvl) << LOGSTR(lvl) << COLOUR_NORMAL << "] " << fn << ":" << line << " " << str() << std::endl;
 #endif
 }
 
