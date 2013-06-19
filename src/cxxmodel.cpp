@@ -63,7 +63,7 @@ void AeCxxModel::setFileName(QString name) {
 
 	args[0] = "-x";
 	args[1] = "c++";
-    args[2] = "-I"  ARCH_HEADERS;
+    args[2] = "-I" ARCH_HEADERS;
 	args[3] = "-pedantic";
     args[4] = "-Weverything";
     args[5] = strdup(QString(QString("-I")+fi.dir().path()).toUtf8().constData());
@@ -95,7 +95,7 @@ QString AeCxxModel::getTipAt(unsigned int row, unsigned int col) {
 //            if(col >= r.start && col <= r.start + r.length)
 //                return ds.message;
 //	}
-    ae_info("get tip at " << row << ":" << col);
+    ae_debug("gettipat");
     for(int i=0; i<(*newStyles_)[row].size(); ++i) {
         const AeCodeDecoration::Extents& e = (*newStyles_)[row][i].extents();
         if(col >= e.start && col <= e.start + e.length) {
@@ -103,6 +103,7 @@ QString AeCxxModel::getTipAt(unsigned int row, unsigned int col) {
             return (*newStyles_)[row][i].annotation_;
         }
     }
+
 	return "";
 }
 

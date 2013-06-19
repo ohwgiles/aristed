@@ -33,7 +33,7 @@ public:
 	virtual bool keyPressEvent(QPlainTextEdit*,QKeyEvent*) { return false; }
 
 	// return a tooltip for the given row,column
-	virtual QString getTipAt(int, int) { return ""; }
+    virtual QString getTipAt(unsigned, unsigned) { return ""; }
 
 	// language model may require the source code filename
 	virtual void setFileName(QString) {}

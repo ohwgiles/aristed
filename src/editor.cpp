@@ -11,10 +11,12 @@
 #include "codemodel.hpp"
 #include "cxxmodel.hpp"
 #include "linenumberpanel.hpp"
-#include "highlighter.hpp"
 #include "searchpanel.hpp"
+#include "diagnosticpanel.hpp"
+#include "highlighter.hpp"
 
 #include "editor.hpp"
+
 
 AeEditor::AeEditor(QWidget *parent) :
 	QPlainTextEdit(parent),
@@ -53,7 +55,10 @@ AeEditor::AeEditor(QWidget *parent) :
 	searchPanel_ = new AeSearchPanel(this);
 	searchPanel_->hide();
 
-	relayout();
+    diagnosticPanel_ = new AeDiagnosticPanel(this);
+    diagnosticPanel_->hide();
+
+    relayout();
 }
 
 void AeEditor::searchString(QString str) {
@@ -149,6 +154,7 @@ void AeEditor::setColourScheme(const ColourScheme* scheme) {
 	highlightCurrentLine();
 	lineNumberPanel_->setColourScheme(scheme);
 	searchPanel_->setColourScheme(scheme);
+    diagnosticPanel_->setColourScheme(scheme);
 
 }
 void AeEditor::handleTextChanged(int pos, int removed, int added) {
@@ -177,12 +183,27 @@ void AeEditor::handleCursorMoved() {
 	// something cleans the search results. re-set them here
 	setExtraSelections(searchResults_);
 
+
+    // update current line:col status bar info
 	QTextCursor cur = textCursor();
 	QString loc = QString::number(cur.blockNumber()+1) + ":" + QString::number(cur.columnNumber());
 	emit updateCursorPosition(loc);
 
 	// Let the model update whatever it needs
 	model_->cursorPositionChanged(document(), cur);
+
+    // todo improve how this works
+    QString noteHere = model_->getTipAt(cur.blockNumber(), cur.columnNumber());
+    if(noteHere.isEmpty()) {
+        if(diagnosticPanel_->isVisible()) {
+            diagnosticPanel_->hide();
+            relayout();
+        }
+    } else {
+        bool wasVisible = diagnosticPanel_->isVisible();
+        diagnosticPanel_->show(noteHere);
+        if(!wasVisible) relayout();
+    }
 
 	if(completer_->popup()->isVisible())
 		showCompletions();
@@ -211,13 +232,21 @@ void AeEditor::keyPressEvent(QKeyEvent *e) {
 		return;
 	}
 
-	if(e->key() == Qt::Key_Escape && searchPanel_->isVisible()) {
-		searchPanel_->hide();
-		searchResults_.clear();
-		setExtraSelections(searchResults_);
-		relayout();
-		return;
-	}
+    if(e->key() == Qt::Key_Escape) {
+        if(diagnosticPanel_->isVisible()) {
+            diagnosticPanel_->hide();
+            relayout();
+            return;
+        }
+
+        if(searchPanel_->isVisible()) {
+            searchPanel_->hide();
+            searchResults_.clear();
+            setExtraSelections(searchResults_);
+            relayout();
+            return;
+        }
+    }
 
 	// allow the model to supply some key events
 	if(model_->keyPressEvent(this, e))
@@ -329,19 +358,21 @@ bool AeEditor::saveFile(QString fileName) {
 	setDirty(false);
 	return true;
 }
-
+#include <QScrollBar>
 void AeEditor::relayout() {
 	QRect cr = contentsRect();
 	int searchPanelHeight = searchPanel_->isVisible() ? searchPanel_->sizeHint().height() : 0;
-	setViewportMargins(lineNumberPanel_->width(),0,0,searchPanelHeight);
-	lineNumberPanel_->setGeometry(0,0,lineNumberPanel_->width(), cr.height());
-	searchPanel_->setGeometry(0,cr.height()-searchPanelHeight,cr.width(),searchPanelHeight);
-
+    int diagnosticPanelHeight = diagnosticPanel_->isVisible() ? diagnosticPanel_->sizeHint().height() : 0;
+    setViewportMargins(lineNumberPanel_->width(),0,0,searchPanelHeight + diagnosticPanelHeight);
+    lineNumberPanel_->setGeometry(0,0,lineNumberPanel_->width(), cr.height() - searchPanelHeight - diagnosticPanelHeight);
+    searchPanel_->setGeometry(0,cr.height()-searchPanelHeight,cr.width(),searchPanelHeight);
+    diagnosticPanel_->setGeometry(0,cr.height()-diagnosticPanelHeight-searchPanelHeight,cr.width(),diagnosticPanelHeight);
+    verticalScrollBar()->setGeometry(0,0,verticalScrollBar()->width(),cr.height()-searchPanelHeight-diagnosticPanelHeight);
 }
 
 void AeEditor::resizeEvent(QResizeEvent *e) {
-	QPlainTextEdit::resizeEvent(e);
-	relayout();
+    QPlainTextEdit::resizeEvent(e);
+    relayout();
 }
 
 void AeEditor::highlightCurrentLine() {

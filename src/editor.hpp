@@ -7,6 +7,7 @@ class AeCodeModel;
 struct ColourScheme;
 class AeLineNumberPanel;
 class AeSearchPanel;
+class AeDiagnosticPanel;
 class TextStyle;
 class QCompleter;
 class AeHighlighter;
@@ -65,6 +66,7 @@ private:
 
 	AeLineNumberPanel* lineNumberPanel_;
 	AeSearchPanel* searchPanel_;
+    AeDiagnosticPanel* diagnosticPanel_;
 
 	AeCodeModel* model_;
 	QCompleter* completer_;

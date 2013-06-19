@@ -31,6 +31,7 @@ add_executable(ae
  codemodel.cpp
  cxxmodel.cpp
  codedecoration.cpp
+ diagnosticpanel.cpp
  editor.cpp
  filesearchdialog.cpp
  highlighter.cpp
