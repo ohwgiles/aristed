@@ -29,12 +29,12 @@ screenshot:
 
 dependencies
 ------------
-- Qt &gt;= 4.7
-  - known as libqt4-dev in debian-based distros
-- clang == 3.1
-  - known as libclang-dev in debian-based distros
-  - ubuntu 12.04 LTS only has version 3.0
-  - clang 3.2 has a segfault issue
+- Qt &gt;= 5
+  - Arch Linux (qt5-base)
+  - [search packages.ubuntu.com](http://packages.ubuntu.com/search?keywords=qtbase5-dev&searchon=names)
+- clang &gt;= 3.1
+  - Arch Linux (clang)
+  - [search packages.ubuntu.com](http://packages.ubuntu.com/search?keywords=libclang-dev&searchon=names)
 
 compilation
 -----------
